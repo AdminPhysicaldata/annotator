@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: vive_labeler
+Version: 0.1.0
+Summary: Advanced multimodal data labeling tool for video and HTC VIVE tracking
+Author: Your Name
+Author-email: your.email@example.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.10
+Requires-Dist: lerobot>=0.4.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: pyarrow>=12.0.0
+Requires-Dist: opencv-python>=4.8.0
+Requires-Dist: imageio>=2.31.0
+Requires-Dist: imageio-ffmpeg>=0.4.9
+Requires-Dist: pyqtgraph>=0.13.0
+Requires-Dist: PyOpenGL>=3.1.6
+Requires-Dist: PyOpenGL-accelerate>=3.1.6
+Requires-Dist: scipy>=1.11.0
+Requires-Dist: open3d>=0.17.0
+Requires-Dist: PyQt6>=6.5.0
+Requires-Dist: PyQt6-WebEngine>=6.5.0
+Requires-Dist: torch>=2.0.0
+Requires-Dist: huggingface-hub>=0.19.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: tqdm>=4.66.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

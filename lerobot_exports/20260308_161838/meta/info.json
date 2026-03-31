@@ -1,0 +1,217 @@
+{
+  "codebase_version": "v3.0",
+  "robot_type": "vive_tracker",
+  "fps": 30.0,
+  "total_episodes": 1,
+  "total_frames": 607,
+  "total_tasks": 1,
+  "total_chunks": 1,
+  "chunks_size": 607,
+  "splits": {
+    "train": "0:1"
+  },
+  "data_path": "data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet",
+  "video_path": "videos/{video_key}/chunk-{chunk_index:03d}/file-{file_index:03d}.mp4",
+  "episodes_path": "meta/episodes/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet",
+  "features": {
+    "index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "episode_index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "frame_index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "timestamp": {
+      "dtype": "float32",
+      "shape": [
+        1
+      ]
+    },
+    "task_index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "is_first": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "is_last": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "is_terminal": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "annotation.grasping": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "annotation.moving": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "annotation.placing": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "annotation.idle": {
+      "dtype": "bool",
+      "shape": [
+        1
+      ]
+    },
+    "observation.state": {
+      "dtype": "float32",
+      "shape": [
+        21
+      ],
+      "names": [
+        "tracker_head_x",
+        "tracker_head_y",
+        "tracker_head_z",
+        "tracker_head_qw",
+        "tracker_head_qx",
+        "tracker_head_qy",
+        "tracker_head_qz",
+        "tracker_left_x",
+        "tracker_left_y",
+        "tracker_left_z",
+        "tracker_left_qw",
+        "tracker_left_qx",
+        "tracker_left_qy",
+        "tracker_left_qz",
+        "tracker_right_x",
+        "tracker_right_y",
+        "tracker_right_z",
+        "tracker_right_qw",
+        "tracker_right_qx",
+        "tracker_right_qy",
+        "tracker_right_qz"
+      ]
+    },
+    "action": {
+      "dtype": "float32",
+      "shape": [
+        21
+      ],
+      "names": [
+        "tracker_head_x",
+        "tracker_head_y",
+        "tracker_head_z",
+        "tracker_head_qw",
+        "tracker_head_qx",
+        "tracker_head_qy",
+        "tracker_head_qz",
+        "tracker_left_x",
+        "tracker_left_y",
+        "tracker_left_z",
+        "tracker_left_qw",
+        "tracker_left_qx",
+        "tracker_left_qy",
+        "tracker_left_qz",
+        "tracker_right_x",
+        "tracker_right_y",
+        "tracker_right_z",
+        "tracker_right_qw",
+        "tracker_right_qx",
+        "tracker_right_qy",
+        "tracker_right_qz"
+      ]
+    },
+    "observation.gripper.left": {
+      "dtype": "float32",
+      "shape": [
+        1
+      ],
+      "names": [
+        "opening_mm"
+      ]
+    },
+    "observation.gripper.right": {
+      "dtype": "float32",
+      "shape": [
+        1
+      ],
+      "names": [
+        "opening_mm"
+      ]
+    },
+    "observation.images.head": {
+      "dtype": "video",
+      "shape": [
+        1200,
+        1920,
+        3
+      ],
+      "video_info": {
+        "video.fps": 30.0,
+        "video.height": 1200,
+        "video.width": 1920,
+        "video.channels": 3,
+        "video.codec": "h264",
+        "video.pix_fmt": "yuv420p",
+        "video.vflip": false
+      }
+    },
+    "observation.images.left": {
+      "dtype": "video",
+      "shape": [
+        1200,
+        1920,
+        3
+      ],
+      "video_info": {
+        "video.fps": 30.0,
+        "video.height": 1200,
+        "video.width": 1920,
+        "video.channels": 3,
+        "video.codec": "h264",
+        "video.pix_fmt": "yuv420p",
+        "video.vflip": false
+      }
+    },
+    "observation.images.right": {
+      "dtype": "video",
+      "shape": [
+        1200,
+        1920,
+        3
+      ],
+      "video_info": {
+        "video.fps": 30.0,
+        "video.height": 1200,
+        "video.width": 1920,
+        "video.channels": 3,
+        "video.codec": "h264",
+        "video.pix_fmt": "yuv420p",
+        "video.vflip": false
+      }
+    }
+  }
+}

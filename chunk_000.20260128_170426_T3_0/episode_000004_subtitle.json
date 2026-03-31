@@ -1,0 +1,82 @@
+[
+    {
+        "start": 0,
+        "end": 16,
+        "text": "start"
+    },
+    {
+        "start": 16,
+        "end": 43,
+        "text": "prendre la banane avec le bras droit"
+    },
+    {
+        "start": 43,
+        "end": 119,
+        "text": "transfert de la banane du bras droit au bras gauche"
+    },
+    {
+        "start": 119,
+        "end": 155,
+        "text": "placer la banane dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 155,
+        "end": 217,
+        "text": "prendre la poire avec le bras gauche"
+    },
+    {
+        "start": 217,
+        "end": 236,
+        "text": "placer la poire dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 236,
+        "end": 277,
+        "text": "prendre la fraise avec le bras gauche"
+    },
+    {
+        "start": 277,
+        "end": 295,
+        "text": "placer la fraise dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 295,
+        "end": 335,
+        "text": "prendre l’orange avec le bras gauche"
+    },
+    {
+        "start": 335,
+        "end": 363,
+        "text": "placer l’orange dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 363,
+        "end": 426,
+        "text": "prendre la pomme avec le bras droit"
+    },
+    {
+        "start": 426,
+        "end": 528,
+        "text": "transférer la pomme du bras droit vers le bras gauche"
+    },
+    {
+        "start": 528,
+        "end": 567,
+        "text": "placer la pomme dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 567,
+        "end": 630,
+        "text": "prendre le citron avec le bras droit"
+    },
+    {
+        "start": 630,
+        "end": 714,
+        "text": "transférer le citron du bras droit vers le bras gauche"
+    },
+    {
+        "start": 714,
+        "end": 744,
+        "text": "placer le citron dans le bac transparent avec le bras gauche"
+    }
+]

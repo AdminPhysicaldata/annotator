@@ -1,0 +1,46 @@
+# Core dependencies
+lerobot>=0.4.0
+numpy>=1.24.0
+pandas>=2.0.0
+pyarrow>=12.0.0  # For Parquet support
+
+# Video processing
+opencv-python>=4.8.0
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.9
+
+# 3D visualization and transformations
+pyqtgraph>=0.13.0
+PyOpenGL>=3.1.6  # Required for pyqtgraph.opengl
+PyOpenGL-accelerate>=3.1.6  # Optional but recommended for performance
+scipy>=1.11.0  # For spatial transformations, quaternions
+open3d>=0.17.0  # For advanced 3D visualization
+
+# UI
+PyQt6>=6.5.0
+PyQt6-WebEngine>=6.5.0
+
+# ML/Data
+torch>=2.0.0
+huggingface-hub>=0.19.0
+
+# Message queue
+pika>=1.3.0
+
+# HDFS
+hdfs>=2.7.0
+
+# NAS/SFTP
+paramiko>=3.0.0
+
+# AWS S3
+boto3>=1.34.0
+requests>=2.31.0
+
+# MongoDB
+pymongo>=4.6.0
+bcrypt>=4.0.0
+
+# Utilities
+pyyaml>=6.0
+tqdm>=4.66.0

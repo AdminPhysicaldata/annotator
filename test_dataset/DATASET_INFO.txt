@@ -1,0 +1,23 @@
+VIVE LABELER - Test Dataset
+============================
+
+Generated: Février 2026
+Format: LeRobot v3.0
+Episodes: 2
+Total Frames: 300
+Duration: 10 seconds
+Video: 640x480 @ 30fps
+
+VIVE Tracking Data:
+- Position 3D (x, y, z) - Circular trajectory
+- Rotation (quaternions w, x, y, z)
+
+Episode 0: Circle radius 0.5m
+Episode 1: Circle radius 0.7m
+
+To use:
+1. python -m vive_labeler
+2. File → Open Dataset
+3. Select this folder (test_dataset)
+
+See README.md for details.

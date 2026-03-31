@@ -1,0 +1,8 @@
+{
+    "flag": [
+        "grasp_failed",
+        "parasite_movements",
+        "not_smooth"
+    ],
+    "note": 3
+}

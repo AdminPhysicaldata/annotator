@@ -1,0 +1,29 @@
+{
+  "dataset_type": "LeRobotDataset",
+  "version": "3.0",
+  "fps": 30.0,
+  "camera_keys": [
+    "front_camera"
+  ],
+  "features": {
+    "observation.vive_position": {
+      "dtype": "float32",
+      "shape": [
+        3
+      ]
+    },
+    "observation.vive_rotation": {
+      "dtype": "float32",
+      "shape": [
+        4
+      ]
+    },
+    "timestamp": {
+      "dtype": "float64",
+      "shape": []
+    }
+  },
+  "total_episodes": 2,
+  "total_frames": 300,
+  "description": "Synthetic test dataset with circular VIVE trajectory"
+}

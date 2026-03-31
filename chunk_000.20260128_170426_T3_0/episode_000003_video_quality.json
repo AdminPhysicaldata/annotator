@@ -1,0 +1,10 @@
+{
+    "flag": [
+        "not_smooth",
+        "task_instruction_not_followed",
+        "parasite_movements",
+        "out_of_view",
+        "object_falls"
+    ],
+    "note": 2
+}

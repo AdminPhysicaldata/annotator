@@ -1,0 +1,82 @@
+[
+    {
+        "start": 0,
+        "end": 39,
+        "text": "start"
+    },
+    {
+        "start": 39,
+        "end": 62,
+        "text": "[fail] prendre la banane avec le bras droit"
+    },
+    {
+        "start": 62,
+        "end": 81,
+        "text": "prendre la banane avec le bras droit"
+    },
+    {
+        "start": 81,
+        "end": 169,
+        "text": "[fail] transfert de la banane du bras droit au bras gauche"
+    },
+    {
+        "start": 169,
+        "end": 211,
+        "text": "transfert de la banane du bras droit au bras gauche"
+    },
+    {
+        "start": 211,
+        "end": 252,
+        "text": "placer la banane dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 252,
+        "end": 296,
+        "text": "prendre le citron avec le bras gauche"
+    },
+    {
+        "start": 296,
+        "end": 322,
+        "text": "placer le citron dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 322,
+        "end": 371,
+        "text": "prendre la poire avec le bras gauche"
+    },
+    {
+        "start": 371,
+        "end": 409,
+        "text": "placer la poire dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 409,
+        "end": 485,
+        "text": "prendre la pomme avec le bras gauche"
+    },
+    {
+        "start": 485,
+        "end": 514,
+        "text": "placer la pomme dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 514,
+        "end": 602,
+        "text": "prendre la fraise avec le bras gauche"
+    },
+    {
+        "start": 602,
+        "end": 633,
+        "text": "placer la fraise dans le bac transparent avec le bras gauche"
+    },
+    {
+        "start": 633,
+        "end": 699,
+        "text": "prendre l'orange avec le bras gauche"
+    },
+    {
+        "start": 699,
+        "end": 736,
+        "text": "placer l’orange dans le bac transparent avec le bras gauche"
+    }
+]
