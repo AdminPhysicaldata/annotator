@@ -1017,8 +1017,9 @@ class MainWindow(QMainWindow):
         if self._initial_mode == "verification":
             self._mode_btn.setChecked(True)
 
-        # Recover any orphan sessions left in temp from a previous run
-        QTimer.singleShot(500, self._recover_orphan_sessions)
+        # Clean stale temp dirs then recover orphan sessions left from a previous run
+        QTimer.singleShot(500, self._cleanup_stale_temp_dirs)
+        QTimer.singleShot(600, self._recover_orphan_sessions)
 
         # Auto-load session if provided, otherwise show waiting screen (no auto-polling)
         if session_dir:
@@ -3076,8 +3077,8 @@ class MainWindow(QMainWindow):
                 username=self.config.hdd.username,
                 password=self.config.hdd.password or "",
                 key_path=None,
-                delete_after=False,        # on garde le dossier local
-                delete_session_dir=None,
+                delete_after=True,         # supprime le dossier export après upload
+                delete_session_dir=session_dir,  # supprime le cache session après upload
             )
             self._bg_upload_procs.append(proc)
             if not self._bg_upload_timer.isActive():
@@ -3108,9 +3109,8 @@ class MainWindow(QMainWindow):
         )
 
         # 3. Nettoyage côté application et passage immédiat au job suivant.
-        #    On garde le session_dir sur disque — le subprocess d'upload
-        #    le supprimera lui-même après transfert réussi.
-        self._cleanup_session_state(keep_session_dir=True)
+        #    Le subprocess d'upload supprime session_dir après transfert réussi.
+        self._cleanup_session_state(keep_session_dir=True)  # subprocess gère la suppression
         self._go_to_next_job()
 
     def _poll_background_uploads(self) -> None:
@@ -3137,6 +3137,58 @@ class MainWindow(QMainWindow):
         self._bg_upload_procs = still_running
         if not still_running:
             self._bg_upload_timer.stop()
+
+    def _cleanup_stale_temp_dirs(self) -> None:
+        """Au démarrage, supprime les dossiers temporaires de sessions abandonnées.
+
+        Un dossier est considéré « abandonné » (non exporté) s'il ne contient
+        pas de fichier ``annotator_info.json``.  Ces dossiers ne peuvent pas
+        être ré-uploadés donc on les supprime directement pour libérer l'espace.
+
+        Les dossiers avec ``annotator_info.json`` sont laissés intact pour que
+        ``_recover_orphan_sessions`` puisse les uploader.
+        """
+        import shutil
+        import tempfile
+
+        tmp_root = Path(tempfile.gettempdir())
+        prefixes = (
+            "vive_spool_",
+            "vive_labeler_nas_",
+            "vive_labeler_hdd_",
+            "vive_labeler_",
+            "vive_labeler_s3_",
+        )
+
+        stale = [
+            d for d in tmp_root.iterdir()
+            if d.is_dir()
+            and any(d.name.startswith(p) for p in prefixes)
+            and not (d / "annotator_info.json").exists()
+        ]
+
+        if not stale:
+            logger.info("Nettoyage au démarrage : aucun dossier temporaire obsolète trouvé.")
+            return
+
+        freed_mb = 0
+        for d in stale:
+            try:
+                size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+                shutil.rmtree(d, ignore_errors=True)
+                freed_mb += size / (1024 * 1024)
+                logger.info("Supprimé dossier obsolète : %s (%.1f Mo)", d, size / (1024 * 1024))
+            except Exception as exc:
+                logger.warning("Impossible de supprimer %s : %s", d, exc)
+
+        logger.info(
+            "Nettoyage au démarrage terminé : %d dossier(s) supprimé(s), ~%.0f Mo libérés.",
+            len(stale), freed_mb,
+        )
+        self.statusbar.showMessage(
+            f"Nettoyage : {len(stale)} session(s) obsolète(s) supprimée(s) — {freed_mb:.0f} Mo libérés",
+            5000,
+        )
 
     def _recover_orphan_sessions(self) -> None:
         """Au démarrage, récupère les sessions temporaires laissées par une exécution précédente.
