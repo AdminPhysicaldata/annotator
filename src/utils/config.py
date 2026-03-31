@@ -54,8 +54,8 @@ class RabbitMQConfig:
     """Configuration for RabbitMQ connection."""
     host: str = "192.168.88.246"
     port: int = 5672
-    username: str = "admin"
-    password: str = "Admin123456!"
+    username: str = ""
+    password: str = ""
     queue_name: str = "ingestion_queue"
     virtual_host: str = "/"
 
@@ -65,8 +65,8 @@ class NASConfig:
     """Configuration for NAS SFTP access."""
     host: str = "192.168.88.248"
     port: int = 22
-    username: str = "EXORIA"
-    password: str = "NasExori@2026!!#"
+    username: str = ""
+    password: str = ""
     key_path: Optional[str] = None   # Path to SSH private key (preferred over password)
     local_dir: Optional[str] = None  # Local cache directory for downloaded files
     silver_root: str = "/DB-EXORIA/lakehouse/silver/annotated"
@@ -88,8 +88,8 @@ class SpoolConfig:
     """Configuration for the SPOOL SFTP server (scenario inbox)."""
     host: str = "192.168.88.28"
     port: int = 22
-    username: str = "spool"
-    password: str = "root"
+    username: str = ""
+    password: str = ""
     inbox_base: str = "/srv/exoria/"
 
 
@@ -98,8 +98,8 @@ class HDDConfig:
     """Configuration for the HDD SFTP archive server."""
     host: str = "192.168.88.82"
     port: int = 22
-    username: str = "exoria"
-    password: str = "Admin123456"
+    username: str = ""
+    password: str = ""
     inbox_base: str = "/mnt/storage/pool"
     silver_base: str = "/mnt/storage/silver"
     gold_base: str = "/mnt/storage/gold"
@@ -110,7 +110,7 @@ class HDDConfig:
 @dataclass
 class MongoDBConfig:
     """Configuration for MongoDB connection."""
-    connection_string: str = "mongodb://admin:admin123@192.168.88.17:27017/"
+    connection_string: str = "mongodb://192.168.88.17:27017/"
     database: str = "physical_data"
     collection: str = "annotators"
 
