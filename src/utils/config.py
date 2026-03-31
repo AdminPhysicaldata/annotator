@@ -101,7 +101,7 @@ class HDDConfig:
     username: str = "exoria"
     password: str = "Admin123456"
     inbox_base: str = "/mnt/storage/pool"
-    silver_base: str = "/home/sftpuser/silver"
+    silver_base: str = "/mnt/storage/silver"
     gold_base: str = "/mnt/storage/gold"
     send_base: str = "/mnt/storage/send"
     retry_base: str = "/mnt/storage/retry"
