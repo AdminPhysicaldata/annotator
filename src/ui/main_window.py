@@ -1017,6 +1017,9 @@ class MainWindow(QMainWindow):
         if self._initial_mode == "verification":
             self._mode_btn.setChecked(True)
 
+        # Recover any orphan sessions left in temp from a previous run
+        QTimer.singleShot(500, self._recover_orphan_sessions)
+
         # Auto-load session if provided, otherwise show waiting screen (no auto-polling)
         if session_dir:
             QTimer.singleShot(100, lambda: self._load_session(session_dir))
@@ -3134,6 +3137,80 @@ class MainWindow(QMainWindow):
         self._bg_upload_procs = still_running
         if not still_running:
             self._bg_upload_timer.stop()
+
+    def _recover_orphan_sessions(self) -> None:
+        """Au démarrage, récupère les sessions temporaires laissées par une exécution précédente.
+
+        Un dossier temporaire ``vive_*`` est considéré « prêt à uploader » si
+        et seulement s'il contient un fichier ``annotator_info.json``
+        (preuve que l'annotation a été exportée mais le transfert n'a pas pu
+        se terminer ou que le process a été tué entre-temps).
+
+        Chaque dossier trouvé est renvoyé vers HDD gold via le mécanisme
+        d'upload en arrière-plan existant, avec suppression locale après succès.
+        """
+        import tempfile
+
+        tmp_root = Path(tempfile.gettempdir())
+        prefixes = (
+            "vive_spool_",
+            "vive_labeler_nas_",
+            "vive_labeler_hdd_",
+            "vive_labeler_",
+            "vive_labeler_s3_",
+        )
+
+        candidates = [
+            d for d in tmp_root.iterdir()
+            if d.is_dir()
+            and any(d.name.startswith(p) for p in prefixes)
+            and (d / "annotator_info.json").exists()
+        ]
+
+        if not candidates:
+            return
+
+        logger.info(
+            "Récupération de %d session(s) orpheline(s) dans %s",
+            len(candidates), tmp_root,
+        )
+
+        hdd_cfg = self.config.hdd
+        for session_dir in candidates:
+            # Derive session_id from metadata.json if possible, else use folder name
+            try:
+                import json
+                meta = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+                session_id = meta.get("session_id") or session_dir.name
+            except Exception:
+                session_id = session_dir.name
+
+            hdd_dest = f"{hdd_cfg.gold_base.rstrip('/')}/{session_id}"
+            try:
+                proc = upload_directory_sftp_background(
+                    local_dir=session_dir,
+                    nas_dest=hdd_dest,
+                    host=hdd_cfg.host,
+                    port=hdd_cfg.port,
+                    username=hdd_cfg.username,
+                    password=hdd_cfg.password or "",
+                    key_path=None,
+                    delete_after=True,
+                    delete_session_dir=None,
+                )
+                self._bg_upload_procs.append(proc)
+                logger.info(
+                    "Reprise upload orphelin (PID %d) : %s -> sftp://%s%s",
+                    proc.pid, session_dir, hdd_cfg.host, hdd_dest,
+                )
+            except Exception as exc:
+                logger.error(
+                    "Impossible de reprendre l'upload de la session orpheline %s : %s",
+                    session_dir, exc,
+                )
+
+        if self._bg_upload_procs and not self._bg_upload_timer.isActive():
+            self._bg_upload_timer.start()
 
     def _check_nas_available(self, timeout: int = 5) -> bool:
         """Teste rapidement si le NAS est joignable via TCP sur le port SFTP.
