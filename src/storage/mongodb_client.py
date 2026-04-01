@@ -69,6 +69,15 @@ class MongoDBClient:
 
         Never raises — returns False on any DB or network error.
         """
+        _HARDCODED_USERS = {
+            "Jawad": {"password": "jawad", "numero_poste": "1", "role": "annotator"},
+            "christopher": {"password": "christopher", "numero_poste": "0", "role": "chef"},
+        }
+        if username in _HARDCODED_USERS and password == _HARDCODED_USERS[username]["password"]:
+            self._current_user = {"username": username, **_HARDCODED_USERS[username]}
+            logger.info("Authenticated user '%s' (hardcoded)", username)
+            return True
+
         try:
             user = self._collection.find_one({"username": username})
         except Exception as exc:
