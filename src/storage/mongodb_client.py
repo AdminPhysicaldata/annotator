@@ -159,15 +159,41 @@ class MongoDBClient:
             return False
 
     def list_scenarios(self) -> List[Dict[str, Any]]:
-        """Return all scenario documents (nom + description + actif)."""
+        """Return all scenario documents (nom + description + actif).
+
+        Falls back to the bundled JSON file if the DB returns no active scenarios.
+        """
         try:
-            return list(self._db["scenarios"].find(
+            docs = list(self._db["scenarios"].find(
                 {},
                 {"nom": 1, "description": 1, "actif": 1, "labels": 1}
             ))
+            if any(d.get("actif") for d in docs):
+                return docs
         except Exception as exc:
             logger.error("MongoDB list_scenarios failed: %s", exc)
-            return []
+
+        # Fallback: load from bundled data file
+        return self._load_scenarios_from_file()
+
+    def _load_scenarios_from_file(self) -> List[Dict[str, Any]]:
+        """Load scenarios from the bundled physical_data.scenarios.json file."""
+        import json
+        from pathlib import Path
+        candidates = [
+            Path(__file__).parent.parent.parent / "data" / "physical_data.scenarios.json",
+            Path(__file__).parent.parent / "data" / "physical_data.scenarios.json",
+        ]
+        for path in candidates:
+            if path.exists():
+                try:
+                    raw = json.loads(path.read_text(encoding="utf-8"))
+                    logger.info("Scénarios chargés depuis le fichier local : %s (%d docs)", path, len(raw))
+                    return raw
+                except Exception as exc:
+                    logger.error("Impossible de lire %s : %s", path, exc)
+        logger.warning("Fichier de scénarios introuvable — aucun scénario disponible.")
+        return []
 
     # ------------------------------------------------------------------
     # Public accessors

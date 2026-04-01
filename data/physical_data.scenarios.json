@@ -1,0 +1,1218 @@
+[{
+  "_id": {
+    "$oid": "69ad68360818778a79a3b5c7"
+  },
+  "nom": "Pyramide",
+  "description": "Fait une pyramide de gobelet",
+  "duree_min": 4,
+  "actif": true,
+  "created_at": {
+    "$date": "2026-03-08T12:14:46.350Z"
+  },
+  "updated_at": {
+    "$date": "2026-03-31T13:03:38.833Z"
+  },
+  "labels": [
+    {
+      "name": "Approcher le gobelet",
+      "color": "#ff6b6b",
+      "description": ""
+    },
+    {
+      "name": "Déplacer le gobelet",
+      "color": "#4ecdc4",
+      "description": ""
+    },
+    {
+      "name": "Positionner le gobelet",
+      "color": "#45b7d1",
+      "description": ""
+    },
+    {
+      "name": "Saisir le gobelet",
+      "color": "#f7b801",
+      "description": ""
+    },
+    {
+      "name": "Prendre le gobelet",
+      "color": "#9b5de5",
+      "description": ""
+    },
+    {
+      "name": "Tenir le gobelet",
+      "color": "#00bbf9",
+      "description": ""
+    },
+    {
+      "name": "Soulever le gobelet",
+      "color": "#00f5d4",
+      "description": ""
+    },
+    {
+      "name": "Abaisser le gobelet",
+      "color": "#f15bb5",
+      "description": ""
+    },
+    {
+      "name": "Ajuster le gobelet",
+      "color": "#fee440",
+      "description": ""
+    },
+    {
+      "name": "Tourner le gobelet",
+      "color": "#8ac926",
+      "description": ""
+    },
+    {
+      "name": "Empiler le gobelet",
+      "color": "#ff924c",
+      "description": ""
+    },
+    {
+      "name": "Imbriquer le gobelet",
+      "color": "#6a4c93",
+      "description": ""
+    },
+    {
+      "name": "Dés-empiler le gobelet",
+      "color": "#1982c4",
+      "description": ""
+    },
+    {
+      "name": "Séparer les gobelets imbriqués",
+      "color": "#ff595e",
+      "description": ""
+    },
+    {
+      "name": "Séparer les gobelets empilés",
+      "color": "#e63946",
+      "description": ""
+    },
+    {
+      "name": "Relâcher le gobelet",
+      "color": "#ffca3a",
+      "description": ""
+    },
+    {
+      "name": "Lâcher le gobelet",
+      "color": "#8ecae6",
+      "description": ""
+    },
+    {
+      "name": "Break",
+      "color": "#ffffff",
+      "description": ""
+    },
+    {
+      "name": "Saisir et déplacer le gobelet",
+      "color": "#d00000",
+      "description": ""
+    },
+    {
+      "name": "Saisir et positionner le gobelet",
+      "color": "#ff8800",
+      "description": ""
+    },
+    {
+      "name": "Approcher et saisir le gobelet",
+      "color": "#ffbe0b",
+      "description": ""
+    },
+    {
+      "name": "Prendre et déplacer le gobelet",
+      "color": "#3a86ff",
+      "description": ""
+    },
+    {
+      "name": "Prendre et positionner le gobelet",
+      "color": "#8338ec",
+      "description": ""
+    },
+    {
+      "name": "Saisir et soulever le gobelet",
+      "color": "#06d6a0",
+      "description": ""
+    },
+    {
+      "name": "Prendre et soulever le gobelet",
+      "color": "#118ab2",
+      "description": ""
+    },
+    {
+      "name": "Saisir et placer le gobelet",
+      "color": "#ef476f",
+      "description": ""
+    },
+    {
+      "name": "Prendre et placer le gobelet",
+      "color": "#ffd166",
+      "description": ""
+    },
+    {
+      "name": "Soulever et placer le gobelet",
+      "color": "#06d6a0",
+      "description": ""
+    },
+    {
+      "name": "Saisir et empiler le gobelet",
+      "color": "#8ac926",
+      "description": ""
+    },
+    {
+      "name": "Soulever et empiler le gobelet",
+      "color": "#ff924c",
+      "description": ""
+    },
+    {
+      "name": "Prendre et empiler le gobelet",
+      "color": "#c77dff",
+      "description": ""
+    },
+    {
+      "name": "Saisir et imbriquer le gobelet",
+      "color": "#00bbf9",
+      "description": ""
+    },
+    {
+      "name": "Soulever et imbriquer le gobelet",
+      "color": "#f15bb5",
+      "description": ""
+    },
+    {
+      "name": "Saisir et dés-empiler le gobelet",
+      "color": "#9b5de5",
+      "description": ""
+    },
+    {
+      "name": "Soulever et dés-empiler le gobelet",
+      "color": "#f94144",
+      "description": ""
+    },
+    {
+      "name": "Saisir et séparer les gobelets imbriqués",
+      "color": "#577590",
+      "description": ""
+    },
+    {
+      "name": "Soulever et séparer les gobelets imbriqués",
+      "color": "#43aa8b",
+      "description": ""
+    },
+    {
+      "name": "Saisir et séparer les gobelets empilés",
+      "color": "#ff006e",
+      "description": ""
+    },
+    {
+      "name": "Soulever et séparer les gobelets empilés",
+      "color": "#8338ec",
+      "description": ""
+    },
+    {
+      "name": "Prendre et séparer les gobelets empilés",
+      "color": "#3a86ff",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et placer le gobelet",
+      "color": "#4cc9f0",
+      "description": ""
+    },
+    {
+      "name": "Approcher et placer le gobelet",
+      "color": "#4895ef",
+      "description": ""
+    },
+    {
+      "name": "Soulever et déplacer le gobelet",
+      "color": "#560bad",
+      "description": ""
+    },
+    {
+      "name": "Saisir et ajuster le gobelet",
+      "color": "#b5179e",
+      "description": ""
+    },
+    {
+      "name": "Tenir et ajuster le gobelet",
+      "color": "#7209b7",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et ajuster le gobelet",
+      "color": "#3f37c9",
+      "description": ""
+    },
+    {
+      "name": "Placer le gobelet",
+      "color": "#a7fa4d",
+      "description": ""
+    },
+    {
+      "name": "Séparer et placer le gobelet",
+      "color": "#89fa33",
+      "description": ""
+    },
+    {
+      "name": "Transférer le gobelet à l'autre bras",
+      "color": "#ff00ff",
+      "description": ""
+    },
+    {
+      "name": "Fail",
+      "color": "#fa0004",
+      "description": ""
+    },
+    {
+      "name": "Repair",
+      "color": "#55ff00",
+      "description": ""
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69af87c2f02f4a476b49b920"
+  },
+  "nom": "Serviette",
+  "description": "Plier une serviette",
+  "duree_min": 3,
+  "actif": true,
+  "created_at": {
+    "$date": "2026-03-10T02:53:54.563Z"
+  },
+  "updated_at": {
+    "$date": "2026-03-30T17:21:59.636Z"
+  },
+  "labels": [
+    {
+      "name": "Approcher la serviette",
+      "color": "#ff6600",
+      "description": ""
+    },
+    {
+      "name": "Saisir la serviette",
+      "color": "#ffff00",
+      "description": ""
+    },
+    {
+      "name": "Tenir la serviette",
+      "color": "#ffd60a",
+      "description": ""
+    },
+    {
+      "name": "Soulever la serviette",
+      "color": "#2ecc71",
+      "description": ""
+    },
+    {
+      "name": "Déplacer la serviette",
+      "color": "#00c2a8",
+      "description": ""
+    },
+    {
+      "name": "Positionner la serviette",
+      "color": "#0077b6",
+      "description": ""
+    },
+    {
+      "name": "Ajuster la serviette",
+      "color": "#2c75ff",
+      "description": ""
+    },
+    {
+      "name": "Plier la serviette",
+      "color": "#2dc653",
+      "description": ""
+    },
+    {
+      "name": "Marquer le pli de la serviette",
+      "color": "#9d4edd",
+      "description": ""
+    },
+    {
+      "name": "Aplatir la serviette",
+      "color": "#ff00ff",
+      "description": ""
+    },
+    {
+      "name": "Aligner les bords de la serviette",
+      "color": "#7209b7",
+      "description": "Aligner les bords"
+    },
+    {
+      "name": "Pincer la serviette",
+      "color": "#f77f00",
+      "description": ""
+    },
+    {
+      "name": "Tirer la serviette",
+      "color": "#2a9d8f",
+      "description": ""
+    },
+    {
+      "name": "Rabattre la serviette",
+      "color": "#38b000",
+      "description": ""
+    },
+    {
+      "name": "Déplier la serviette",
+      "color": "#f4a261",
+      "description": ""
+    },
+    {
+      "name": "Déposer la serviette",
+      "color": "#2bdcff",
+      "description": ""
+    },
+    {
+      "name": "Placer la serviette pliée",
+      "color": "#2bfafa",
+      "description": ""
+    },
+    {
+      "name": "Empiler la serviette pliée",
+      "color": "#ef476f",
+      "description": ""
+    },
+    {
+      "name": "Relâcher la serviette",
+      "color": "#00fba7",
+      "description": ""
+    },
+    {
+      "name": "Lâcher la serviette",
+      "color": "#f9418e",
+      "description": ""
+    },
+    {
+      "name": "Approcher et saisir la serviette",
+      "color": "#ff8c00",
+      "description": ""
+    },
+    {
+      "name": "Saisir et tenir la serviette",
+      "color": "#ffd166",
+      "description": ""
+    },
+    {
+      "name": "Tenir et ajuster la serviette",
+      "color": "#f4a261",
+      "description": ""
+    },
+    {
+      "name": "Saisir et ajuster la serviette",
+      "color": "#fd6c9e",
+      "description": ""
+    },
+    {
+      "name": "Saisir et soulever la serviette",
+      "color": "#2a9d8f",
+      "description": ""
+    },
+    {
+      "name": "Soulever et déplacer la serviette",
+      "color": "#fec3ac",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et positionner la serviette",
+      "color": "#4cc9f0",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et placer la serviette",
+      "color": "#4895ef",
+      "description": ""
+    },
+    {
+      "name": "Soulever et placer la serviette",
+      "color": "#118ab2",
+      "description": ""
+    },
+    {
+      "name": "Saisir et placer la serviette",
+      "color": "#4361ee",
+      "description": ""
+    },
+    {
+      "name": "Saisir et plier la serviette",
+      "color": "#0000ff",
+      "description": ""
+    },
+    {
+      "name": "Saisir et rabattre la serviette",
+      "color": "#9d4edd",
+      "description": ""
+    },
+    {
+      "name": "Soulever et plier la serviette",
+      "color": "#f9429e",
+      "description": ""
+    },
+    {
+      "name": "Positionner et plier la serviette",
+      "color": "#791cf8",
+      "description": ""
+    },
+    {
+      "name": "Plier et marquer le pli de la serviette",
+      "color": "#c77dff",
+      "description": ""
+    },
+    {
+      "name": "Plier et aplatir la serviette",
+      "color": "#b5179e",
+      "description": ""
+    },
+    {
+      "name": "Plier et aligner la serviette",
+      "color": "#a663cc",
+      "description": ""
+    },
+    {
+      "name": "Saisir et déplier la serviette",
+      "color": "#ff70a6",
+      "description": "Prendre puis ouvrir une serviette pliée"
+    },
+    {
+      "name": "Soulever et déplier la serviette",
+      "color": "#f28482",
+      "description": ""
+    },
+    {
+      "name": "Saisir et tirer la serviette",
+      "color": "#9fe855",
+      "description": ""
+    },
+    {
+      "name": "Tenir et tirer la serviette",
+      "color": "#ffff6b",
+      "description": ""
+    },
+    {
+      "name": "Saisir et pincer la serviette",
+      "color": "#25fde9",
+      "description": ""
+    },
+    {
+      "name": "Pincer et ajuster la serviette",
+      "color": "#e1ce9a",
+      "description": ""
+    },
+    {
+      "name": "Saisir et empiler la serviette",
+      "color": "#3a9d23",
+      "description": ""
+    },
+    {
+      "name": "Soulever et empiler la serviette",
+      "color": "#43aa8b",
+      "description": ""
+    },
+    {
+      "name": "Saisir et séparer la serviette",
+      "color": "#f94144",
+      "description": ""
+    },
+    {
+      "name": "Soulever et séparer la serviette",
+      "color": "#f0c300",
+      "description": ""
+    },
+    {
+      "name": "Séparer et placer la serviette",
+      "color": "#26c4ec",
+      "description": ""
+    },
+    {
+      "name": "Tenir et placer la serviette",
+      "color": "#0f9de8",
+      "description": ""
+    },
+    {
+      "name": "Idle",
+      "color": "#ffffff",
+      "description": ""
+    },
+    {
+      "name": "Passer la serviette à l'autre bras",
+      "color": "#264653",
+      "description": ""
+    },
+    {
+      "name": "Passer la serviette pliée à l'autre bras",
+      "color": "#2a9d8f",
+      "description": ""
+    },
+    {
+      "name": "Déplier et aplatir la serviette",
+      "color": "#01d758",
+      "description": ""
+    },
+    {
+      "name": "Déplier et positionner la serviette",
+      "color": "#219ebc",
+      "description": ""
+    },
+    {
+      "name": "Déplier et ajuster la serviette",
+      "color": "#023047",
+      "description": ""
+    },
+    {
+      "name": "Déplier et aligner les bords de la serviette",
+      "color": "#90dbf4",
+      "description": ""
+    },
+    {
+      "name": "Déplier et déposer la serviette",
+      "color": "#f72585",
+      "description": ""
+    },
+    {
+      "name": "Déplier et tirer la serviette",
+      "color": "#fc5d5d",
+      "description": ""
+    },
+    {
+      "name": "Saisir le bord de la serviette",
+      "color": "#ff6b6b",
+      "description": "Prendre la serviette par un côté pour tirer ou ajuster"
+    },
+    {
+      "name": "Saisir le coin de la serviette",
+      "color": "#4ecdc4",
+      "description": "Prendre un point précis pour plier ou déplier"
+    },
+    {
+      "name": "Saisir le pli de la serviette",
+      "color": "#45b7d1",
+      "description": "Prendre la ligne de pli pour ajuster ou renforcer"
+    },
+    {
+      "name": "Étaler la serviette",
+      "color": "#dd985c",
+      "description": "Ouvrir complètement à plat"
+    },
+    {
+      "name": "manquer",
+      "color": "#aa0000",
+      "description": ""
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69b3806ba02f39553033826a"
+  },
+  "nom": "Stylos",
+  "description": "Metter un groupe de style dans la boite a style un par un",
+  "duree_min": 2,
+  "actif": true,
+  "created_at": {
+    "$date": "2026-03-13T03:11:39.004Z"
+  },
+  "updated_at": {
+    "$date": "2026-04-01T03:05:41.065Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69b8c105fb0b70117f031d4c"
+  },
+  "nom": "Pantalon",
+  "description": "Plier un pantalon",
+  "duree_min": 2,
+  "actif": true,
+  "created_at": {
+    "$date": "2026-03-17T02:48:37.673Z"
+  },
+  "updated_at": {
+    "$date": "2026-03-31T18:00:51.582Z"
+  },
+  "labels": [
+    {
+      "name": "Approcher le pantalon",
+      "color": "#ff7300",
+      "description": ""
+    },
+    {
+      "name": "Saisir le pantalon",
+      "color": "#e76f51",
+      "description": ""
+    },
+    {
+      "name": "Tenir le pantalon",
+      "color": "#ff6600",
+      "description": ""
+    },
+    {
+      "name": "Placer le pantalon",
+      "color": "#f8961e",
+      "description": ""
+    },
+    {
+      "name": "Relâcher le pantalon",
+      "color": "#ffff00",
+      "description": ""
+    },
+    {
+      "name": "Soulever le pantalon",
+      "color": "#38b000",
+      "description": ""
+    },
+    {
+      "name": "Abaisser le pantalon",
+      "color": "#2dc653",
+      "description": ""
+    },
+    {
+      "name": "Déplacer le pantalon",
+      "color": "#80ed99",
+      "description": ""
+    },
+    {
+      "name": "Positionner le pantalon",
+      "color": "#00c2a8",
+      "description": ""
+    },
+    {
+      "name": "Étendre le pantalon",
+      "color": "#43aa8b",
+      "description": ""
+    },
+    {
+      "name": "Lisser le pantalon",
+      "color": "#00f5d4",
+      "description": ""
+    },
+    {
+      "name": "Ajuster le pantalon",
+      "color": "#8ecae6",
+      "description": ""
+    },
+    {
+      "name": "Aligner le pantalon",
+      "color": "#90dbf4",
+      "description": ""
+    },
+    {
+      "name": "Retourner le pantalon",
+      "color": "#277da1",
+      "description": ""
+    },
+    {
+      "name": "Rabattre le pantalon",
+      "color": "#0077b6",
+      "description": ""
+    },
+    {
+      "name": "Plier le pantalon",
+      "color": "#2c75ff",
+      "description": ""
+    },
+    {
+      "name": "Déplier le pantalon",
+      "color": "#0000ff",
+      "description": ""
+    },
+    {
+      "name": "Empiler le pantalon",
+      "color": "#9b5de5",
+      "description": ""
+    },
+    {
+      "name": "Dés-empiler le pantalon",
+      "color": "#7209b7",
+      "description": ""
+    },
+    {
+      "name": "Approcher et saisir le pantalon",
+      "color": "#ff7300",
+      "description": ""
+    },
+    {
+      "name": "Saisir et suspendre le pantalon pour le déplier",
+      "color": "#ff8000",
+      "description": ""
+    },
+    {
+      "name": "Saisir et étendre le pantalon pour le déplier",
+      "color": "#ff6600",
+      "description": ""
+    },
+    {
+      "name": "Poser le pantalon à plat sur la table",
+      "color": "#ffcaac",
+      "description": ""
+    },
+    {
+      "name": "Étendre et aligner le pantalon",
+      "color": "#ffa200",
+      "description": ""
+    },
+    {
+      "name": "Rabattre la jambe du bas sur la jambe du haut",
+      "color": "#ffc300",
+      "description": ""
+    },
+    {
+      "name": "Rabattre la jambe du haut sur la jambe du bas",
+      "color": "#ffd60a",
+      "description": ""
+    },
+    {
+      "name": "Rabattre une jambe sur l’autre",
+      "color": "#00ffcc",
+      "description": ""
+    },
+    {
+      "name": "Plier en ramenant le bas de la jambe sur le haut",
+      "color": "#c7f900",
+      "description": ""
+    },
+    {
+      "name": "Plier en ramenant le haut de la jambe sur le bas",
+      "color": "#a3f200",
+      "description": ""
+    },
+    {
+      "name": "Plier et placer le pantalon",
+      "color": "#7cfc00",
+      "description": ""
+    },
+    {
+      "name": "Plier et relâcher le pantalon",
+      "color": "#4cff00",
+      "description": ""
+    },
+    {
+      "name": "Empiler sur la pile de droite",
+      "color": "#00ff3c",
+      "description": ""
+    },
+    {
+      "name": "Empiler sur la pile de gauche",
+      "color": "#00ff85",
+      "description": ""
+    },
+    {
+      "name": "Empiler sur la pile du centre",
+      "color": "#00ffcc",
+      "description": ""
+    },
+    {
+      "name": "Dés-empiler et déplier le pantalon",
+      "color": "#00e5ff",
+      "description": ""
+    },
+    {
+      "name": "Déplier et étendre le pantalon",
+      "color": "#0096ff",
+      "description": ""
+    },
+    {
+      "name": "Déplier et aligner le pantalon",
+      "color": "#005bff",
+      "description": ""
+    },
+    {
+      "name": "Saisir et placer le pantalon",
+      "color": "#0040ff",
+      "description": ""
+    },
+    {
+      "name": "Tirer et tenir le pantalon",
+      "color": "#ffff00",
+      "description": ""
+    },
+    {
+      "name": "Soulever et tenir le pantalon",
+      "color": "#a10684",
+      "description": ""
+    },
+    {
+      "name": "Placer et relâcher le pantalon",
+      "color": "#00ff33",
+      "description": ""
+    },
+    {
+      "name": "Aligner et relâcher le pantalon",
+      "color": "#2a1aff",
+      "description": ""
+    },
+    {
+      "name": "Ajuster et relâcher le pantalon",
+      "color": "#11ff00",
+      "description": ""
+    },
+    {
+      "name": "Rabattre et relâcher le pantalon",
+      "color": "#00ffff",
+      "description": ""
+    },
+    {
+      "name": "Soulever et étendre le pantalon",
+      "color": "#ffa600",
+      "description": ""
+    },
+    {
+      "name": "Déplacer le pantalon légèrement vers la droite",
+      "color": "#b5179e",
+      "description": ""
+    },
+    {
+      "name": "Déplacer le pantalon légèrement sur le bord droit de la table",
+      "color": "#c77dff",
+      "description": ""
+    },
+    {
+      "name": "Déplacer le pantalon légèrement vers la gauche",
+      "color": "#d291ff",
+      "description": ""
+    },
+    {
+      "name": "Déplacer le pantalon légèrement vers le bord de la table gauche",
+      "color": "#e0aaff",
+      "description": ""
+    },
+    {
+      "name": "Suspendre le pantalon et le laisser tomber",
+      "color": "#f15bb5",
+      "description": ""
+    },
+    {
+      "name": "Idle",
+      "color": "#ffffff",
+      "description": ""
+    },
+    {
+      "name": "Tirer le pantalon",
+      "color": "#9fe855",
+      "description": ""
+    },
+    {
+      "name": "Saisir et soulever le pantalon",
+      "color": "#00ffff",
+      "description": ""
+    },
+    {
+      "name": "Soulever le pantalon puis le déposer",
+      "color": "#c400ff",
+      "description": ""
+    },
+    {
+      "name": "Approcher le pantalon et l'aplatir",
+      "color": "#ff009d",
+      "description": ""
+    },
+    {
+      "name": "Soulever et suspendre le pantalon",
+      "color": "#38b000",
+      "description": ""
+    },
+    {
+      "name": "Maintenir le pantalon à plat",
+      "color": "#ff8a8c",
+      "description": ""
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69ba1973869dfe019f0881ca"
+  },
+  "nom": "Balls",
+  "description": "Mettre les balles dans le panniers",
+  "duree_min": 1,
+  "actif": true,
+  "created_at": {
+    "$date": "2026-03-18T03:18:11.975Z"
+  },
+  "updated_at": {
+    "$date": "2026-04-01T07:15:48.642Z"
+  },
+  "labels": [
+    {
+      "name": "Approcher la boule",
+      "color": "#ff6600",
+      "description": "Quand la main se dirige vers la boule sans contact"
+    },
+    {
+      "name": "Toucher la boule",
+      "color": "#ff6b6b",
+      "description": "Premier contact léger sans prise"
+    },
+    {
+      "name": "Saisir la boule",
+      "color": "#ffff00",
+      "description": ""
+    },
+    {
+      "name": "Tenir la boule",
+      "color": "#4ecdc4",
+      "description": ""
+    },
+    {
+      "name": "Soulever la boule",
+      "color": "#45b7d1",
+      "description": ""
+    },
+    {
+      "name": "Déplacer la boule",
+      "color": "#ffd60a",
+      "description": ""
+    },
+    {
+      "name": "Positionner la boule",
+      "color": "#2ecc71",
+      "description": ""
+    },
+    {
+      "name": "Placer la boule",
+      "color": "#00c2a8",
+      "description": ""
+    },
+    {
+      "name": "Relâcher la boule",
+      "color": "#0077b6",
+      "description": ""
+    },
+    {
+      "name": "Extraire la boule",
+      "color": "#2c75ff",
+      "description": ""
+    },
+    {
+      "name": "Insérer la boule",
+      "color": "#2dc653",
+      "description": ""
+    },
+    {
+      "name": "Pousser la boule",
+      "color": "#9d4edd",
+      "description": ""
+    },
+    {
+      "name": "Tirer la boule",
+      "color": "#264653",
+      "description": ""
+    },
+    {
+      "name": "Faire rouler la boule",
+      "color": "#2a9d8f",
+      "description": ""
+    },
+    {
+      "name": "Faire tourner la boule",
+      "color": "#ff00ff",
+      "description": ""
+    },
+    {
+      "name": "Lancer la boule",
+      "color": "#dd985c",
+      "description": ""
+    },
+    {
+      "name": "Rattraper la boule",
+      "color": "#7209b7",
+      "description": ""
+    },
+    {
+      "name": "Faire rebondir la boule",
+      "color": "#f77f00",
+      "description": ""
+    },
+    {
+      "name": "Arrêter la boule",
+      "color": "#2a9d8f",
+      "description": ""
+    },
+    {
+      "name": "Stabiliser la boule",
+      "color": "#38b000",
+      "description": ""
+    },
+    {
+      "name": "Bloquer la boule",
+      "color": "#f4a261",
+      "description": ""
+    },
+    {
+      "name": "Approcher et saisir la boule",
+      "color": "#00fba7",
+      "description": ""
+    },
+    {
+      "name": "Saisir et tenir la boule",
+      "color": "#f9418e",
+      "description": ""
+    },
+    {
+      "name": "Saisir et soulever la boule",
+      "color": "#0000ff",
+      "description": ""
+    },
+    {
+      "name": "Saisir et déplacer la boule",
+      "color": "#9d4edd",
+      "description": ""
+    },
+    {
+      "name": "Saisir et positionner la boule",
+      "color": "#f9429e",
+      "description": ""
+    },
+    {
+      "name": "Saisir et placer la boule",
+      "color": "#791cf8",
+      "description": ""
+    },
+    {
+      "name": "Saisir et relâcher la boule",
+      "color": "#c77dff",
+      "description": ""
+    },
+    {
+      "name": "Soulever et déplacer la boule",
+      "color": "#b5179e",
+      "description": ""
+    },
+    {
+      "name": "Soulever et positionner la boule",
+      "color": "#a663cc",
+      "description": ""
+    },
+    {
+      "name": "Soulever et placer la boule",
+      "color": "#ff70a6",
+      "description": ""
+    },
+    {
+      "name": "Soulever et relâcher la boule",
+      "color": "#f28482",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et positionner la boule",
+      "color": "#9fe855",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et placer la boule",
+      "color": "#ffff6b",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et relâcher la boule",
+      "color": "#25fde9",
+      "description": ""
+    },
+    {
+      "name": "Approcher et pousser la boule",
+      "color": "#e1ce9a",
+      "description": ""
+    },
+    {
+      "name": "Pousser et faire rouler la boule",
+      "color": "#3a9d23",
+      "description": ""
+    },
+    {
+      "name": "Faire rouler et arrêter la boule",
+      "color": "#43aa8b",
+      "description": ""
+    },
+    {
+      "name": "Lancer et rattraper la boule",
+      "color": "#f94144",
+      "description": ""
+    },
+    {
+      "name": "Faire rebondir et rattraper la boule",
+      "color": "#f0c300",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et stabiliser la boule",
+      "color": "#26c4ec",
+      "description": ""
+    },
+    {
+      "name": "Positionner et relâcher la boule",
+      "color": "#0f9de8",
+      "description": ""
+    },
+    {
+      "name": "Pousser et arrêter la boule",
+      "color": "#fb8500",
+      "description": ""
+    },
+    {
+      "name": "Tirer et rapprocher la boule",
+      "color": "#01d758",
+      "description": ""
+    },
+    {
+      "name": "Approcher et bloquer la boule",
+      "color": "#219ebc",
+      "description": ""
+    },
+    {
+      "name": "Saisir et extraire la boule",
+      "color": "#023047",
+      "description": ""
+    },
+    {
+      "name": "Soulever et extraire la boule",
+      "color": "#90dbf4",
+      "description": ""
+    },
+    {
+      "name": "Extraire et déplacer la boule",
+      "color": "#f72585",
+      "description": ""
+    },
+    {
+      "name": "Extraire et placer la boule",
+      "color": "#fc5d5d",
+      "description": ""
+    },
+    {
+      "name": "Extraire et relâcher la boule",
+      "color": "#073b4c",
+      "description": ""
+    },
+    {
+      "name": "Saisir et insérer la boule",
+      "color": "#9b5de5",
+      "description": ""
+    },
+    {
+      "name": "Soulever et insérer la boule",
+      "color": "#f15bb5",
+      "description": ""
+    },
+    {
+      "name": "Déplacer et insérer la boule",
+      "color": "#00bbf9",
+      "description": ""
+    },
+    {
+      "name": "Insérer et placer la boule",
+      "color": "#55ff00",
+      "description": ""
+    },
+    {
+      "name": "Insérer et relâcher la boule",
+      "color": "#f77f00",
+      "description": ""
+    },
+    {
+      "name": "Idle",
+      "color": "#ffffff",
+      "description": ""
+    }
+  ]
+}]
