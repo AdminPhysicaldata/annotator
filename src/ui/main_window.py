@@ -56,6 +56,7 @@ from .widgets.verification_widget import VerificationWidget
 from .dialogs.session_browser_dialog import SessionBrowserDialog
 from .dialogs.upload_validation_dialog import UploadValidationDialog
 from .dialogs.scenario_label_dialog import ScenarioLabelDialog
+from .dialogs.scenario_action_dialog import ScenarioActionDialog
 
 logger = logging.getLogger(__name__)
 
@@ -933,11 +934,12 @@ class _SaveDestinationDialog(QDialog):
 class MainWindow(QMainWindow):
     """Main application window for multi-camera annotation."""
 
-    def __init__(self, config: AppConfig, session_dir: str = None, mongo_client: MongoDBClient = None, annotator_name: str = "", initial_mode: str = "annotation"):
+    def __init__(self, config: AppConfig, session_dir: str = None, mongo_client: MongoDBClient = None, annotator_name: str = "", initial_mode: str = "annotation", selected_scenario: str = ""):
         super().__init__()
         self.config = config
         self.mongo_client = mongo_client
         self._initial_mode = initial_mode  # "annotation" | "verification"
+        self._selected_scenario = selected_scenario  # scénario choisi au login
         # Pre-fill annotator from login if not already set in config
         if annotator_name and not self.config.annotator:
             self.config.annotator = annotator_name
@@ -3039,6 +3041,12 @@ class MainWindow(QMainWindow):
         rating, flags = validation_result
         logger.info(f"Upload validation: rating={rating}, flags={flags}")
 
+        # Ask for scenario action (do / undo)
+        scenario_name = self.session.metadata.scenario_name or ""
+        scenario_action = ScenarioActionDialog.ask(scenario_name or "inconnu", self)
+        if scenario_action is None:
+            return
+
         session_id = self.session.metadata.session_id
         session_dir = self.session.session_dir
 
@@ -3057,6 +3065,8 @@ class MainWindow(QMainWindow):
                 annotator=self.config.annotator,
                 quality_rating=rating,
                 quality_flags=flags,
+                scenario_name=scenario_name,
+                scenario_action=scenario_action,
             )
             logger.info(
                 "JSON exportés dans le dossier de session : %s", session_dir
@@ -3065,8 +3075,11 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Export JSON échoué :\n{e}")
             return
 
-        # 2. Upload du dossier de session vers HDD gold/{session_id}
-        hdd_dest = f"{self.config.hdd.gold_base.rstrip('/')}/{session_id}"
+        # 2. Upload du dossier de session vers HDD gold/{scenario}/{action}/{session_id}
+        if scenario_name:
+            hdd_dest = f"{self.config.hdd.gold_base.rstrip('/')}/{scenario_name}/{scenario_action}/{session_id}"
+        else:
+            hdd_dest = f"{self.config.hdd.gold_base.rstrip('/')}/{scenario_action}/{session_id}"
         proc = None
         try:
             proc = upload_directory_sftp_background(
@@ -3190,6 +3203,20 @@ class MainWindow(QMainWindow):
             5000,
         )
 
+    def _check_hdd_available(self, timeout: int = 5) -> bool:
+        """Teste rapidement si le HDD est joignable via TCP sur le port SFTP."""
+        import socket
+        try:
+            host = self.config.hdd.host
+            port = self.config.hdd.port
+            if not host:
+                return False
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except Exception as exc:
+            logger.warning("HDD inaccessible (%s:%s) : %s", self.config.hdd.host, self.config.hdd.port, exc)
+            return False
+
     def _recover_orphan_sessions(self) -> None:
         """Au démarrage, récupère les sessions temporaires laissées par une exécution précédente.
 
@@ -3200,6 +3227,7 @@ class MainWindow(QMainWindow):
 
         Chaque dossier trouvé est renvoyé vers HDD gold via le mécanisme
         d'upload en arrière-plan existant, avec suppression locale après succès.
+        Si le HDD n'est pas joignable, un nouveau essai est planifié dans 30 s.
         """
         import tempfile
 
@@ -3222,6 +3250,16 @@ class MainWindow(QMainWindow):
         if not candidates:
             return
 
+        # Vérifier que le HDD est joignable avant de lancer les uploads
+        if not self._check_hdd_available():
+            logger.warning(
+                "HDD inaccessible au démarrage — %d session(s) orpheline(s) en attente, "
+                "nouvel essai dans 30 s.",
+                len(candidates),
+            )
+            QTimer.singleShot(30_000, self._recover_orphan_sessions)
+            return
+
         logger.info(
             "Récupération de %d session(s) orpheline(s) dans %s",
             len(candidates), tmp_root,
@@ -3237,7 +3275,25 @@ class MainWindow(QMainWindow):
             except Exception:
                 session_id = session_dir.name
 
-            hdd_dest = f"{hdd_cfg.gold_base.rstrip('/')}/{session_id}"
+            # Derive scenario_name and scenario_action from annotator_info.json
+            scenario_name = ""
+            scenario_action = ""
+            try:
+                import json as _json
+                ann_info = _json.loads(
+                    (session_dir / "annotator_info.json").read_text(encoding="utf-8")
+                )
+                scenario_name = ann_info.get("scenario_name", "")
+                scenario_action = ann_info.get("scenario_action", "")
+            except Exception:
+                pass
+
+            if scenario_name and scenario_action:
+                hdd_dest = f"{hdd_cfg.gold_base.rstrip('/')}/{scenario_name}/{scenario_action}/{session_id}"
+            elif scenario_action:
+                hdd_dest = f"{hdd_cfg.gold_base.rstrip('/')}/{scenario_action}/{session_id}"
+            else:
+                hdd_dest = f"{hdd_cfg.gold_base.rstrip('/')}/{session_id}"
             try:
                 proc = upload_directory_sftp_background(
                     local_dir=session_dir,
@@ -3535,13 +3591,26 @@ class MainWindow(QMainWindow):
         base = Path(self.config.data.cache_dir or (Path.home() / ".cache" / "vive_labeler"))
         return base / "hdd_verification"
 
+    def _hdd_inbox_base(self) -> str:
+        """Retourne le chemin inbox à utiliser selon le scénario sélectionné au login.
+
+        Si un scénario a été choisi, on cible /mnt/storage/bronze/<scenario>.
+        Sinon on utilise la valeur par défaut de la configuration.
+        """
+        if self._selected_scenario:
+            bronze_base = "/mnt/storage/bronze"
+            return f"{bronze_base}/{self._selected_scenario}"
+        return self.config.hdd.inbox_base
+
     def _make_hdd_worker(self, slot: str) -> HddVerificationWorker:
         """Crée un HddVerificationWorker connecté aux bons slots selon son rôle."""
         hdd = self.config.hdd
+        inbox = self._hdd_inbox_base()
+        logger.info("HDD worker inbox_base: %s (scenario=%r)", inbox, self._selected_scenario)
         worker = HddVerificationWorker(
             host=hdd.host, port=hdd.port,
             username=hdd.username, password=hdd.password,
-            inbox_base=hdd.inbox_base,
+            inbox_base=inbox,
             local_dir=self._hdd_local_dir(),
         )
         if slot == "main":
@@ -3559,7 +3628,7 @@ class MainWindow(QMainWindow):
     def _start_hdd_verification_download(self) -> None:
         """Lance le téléchargement de la première session (aucune session active)."""
         hdd = self.config.hdd
-        logger.info("HDD verification: connecting to %s inbox=%s", hdd.host, hdd.inbox_base)
+        logger.info("HDD verification: connecting to %s inbox=%s", hdd.host, self._hdd_inbox_base())
         self.verification_widget.set_info("Connexion au serveur HDD…")
         self.verification_widget.set_buttons_enabled(False)
         self._hdd_verification_worker = self._make_hdd_worker("main")
@@ -3696,10 +3765,28 @@ class MainWindow(QMainWindow):
     # --- Validate / Reject ---
 
     def _on_verification_validate(self) -> None:
+        # Determine the scenario name from session metadata
+        scenario_name = ""
+        if self.session is not None:
+            scenario_name = self.session.metadata.scenario_name or ""
+
+        action = ScenarioActionDialog.ask(scenario_name or "inconnu", self)
+        if action is None:
+            # User cancelled — re-enable buttons so they can decide again
+            self.verification_widget.set_buttons_enabled(True)
+            return
+
         self.verification_widget.set_buttons_enabled(False)
-        logger.info("Verification: session validated")
+        logger.info("Verification: session validated — action=%s scenario=%s", action, scenario_name)
         self._hdd_session_decided = True
-        self._upload_hdd_session(self.config.hdd.silver_base)
+
+        silver_base = self.config.hdd.silver_base
+        if scenario_name:
+            dest_base = f"{silver_base.rstrip('/')}/{scenario_name}/{action}"
+        else:
+            dest_base = f"{silver_base.rstrip('/')}/{action}"
+
+        self._upload_hdd_session(dest_base)
         self._advance_to_next_hdd_session("✓ Session validée")
 
     def _on_verification_reject(self) -> None:

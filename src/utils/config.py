@@ -98,8 +98,8 @@ class HDDConfig:
     """Configuration for the HDD SFTP archive server."""
     host: str = "192.168.88.82"
     port: int = 22
-    username: str = ""
-    password: str = ""
+    username: str = "exoria"
+    password: str = "Admin123456"
     inbox_base: str = "/mnt/storage/pool"
     silver_base: str = "/mnt/storage/silver"
     gold_base: str = "/mnt/storage/gold"
@@ -289,6 +289,7 @@ class AppConfig:
                 "password": self.hdd.password,
                 "inbox_base": self.hdd.inbox_base,
                 "silver_base": self.hdd.silver_base,
+                "gold_base": self.hdd.gold_base,
                 "send_base": self.hdd.send_base,
                 "retry_base": self.hdd.retry_base,
             },

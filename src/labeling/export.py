@@ -695,6 +695,8 @@ class AnnotationExporter:
         quality_flags: Optional[List[str]] = None,
         episode_refused: bool = False,
         episode_refused_comment: str = "",
+        scenario_name: str = "",
+        scenario_action: str = "",
     ) -> None:
         """Export annotations in the chunk folder format.
 
@@ -720,6 +722,8 @@ class AnnotationExporter:
             annotator_info = {
                 "submited_at": datetime.now().isoformat(),
                 "annotator": annotator,
+                "scenario_name": scenario_name,
+                "scenario_action": scenario_action,
             }
             with open(output_dir / "annotator_info.json", "w", encoding="utf-8") as f:
                 json.dump(annotator_info, f, indent=4)

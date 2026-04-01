@@ -97,14 +97,16 @@ def main():
             sys.exit(1)
 
     # --- Annotator login dialog ---
+    initial_scenario = ""
     while True:
         try:
-            dialog = MongoLoginDialog()
+            dialog = MongoLoginDialog(mongo_client=mongo_client)
             if dialog.exec() != MongoLoginDialog.DialogCode.Accepted:
                 mongo_client.close()
                 sys.exit(0)
             username, password = dialog.get_credentials()
             initial_mode = dialog.get_mode()
+            initial_scenario = dialog.get_scenario()
         except Exception as exc:
             logger.error("Login dialog error: %s", exc)
             QMessageBox.critical(
@@ -122,7 +124,7 @@ def main():
 
         if authenticated:
             poste = mongo_client.current_poste or "?"
-            logger.info("Annotator '%s' authenticated (poste %s)", username, poste)
+            logger.info("Annotator '%s' authenticated (poste %s), scenario '%s'", username, poste, initial_scenario)
             break
         else:
             QMessageBox.warning(
@@ -132,7 +134,7 @@ def main():
 
     # --- Create and show main window ---
     try:
-        window = MainWindow(config=config, session_dir=args.session_dir, mongo_client=mongo_client, annotator_name=username, initial_mode=initial_mode)
+        window = MainWindow(config=config, session_dir=args.session_dir, mongo_client=mongo_client, annotator_name=username, initial_mode=initial_mode, selected_scenario=initial_scenario)
         # Show who is logged in and on which workstation
         user = mongo_client.current_user
         if user:

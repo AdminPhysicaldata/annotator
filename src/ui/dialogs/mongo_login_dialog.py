@@ -1,14 +1,18 @@
 """Login dialog — authenticates an annotator against physical_data.annotators."""
 
 import logging
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QMessageBox, QFrame,
+    QComboBox,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
+
+if TYPE_CHECKING:
+    from ...storage.mongodb_client import MongoDBClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +22,23 @@ class MongoLoginDialog(QDialog):
 
     Expected MongoDB document structure:
         { username, password (plaintext), numero_poste, email, created_at }
+
+    Args:
+        mongo_client: Connected MongoDBClient used to fetch the list of available
+                      scenarios so the user can select one before logging in.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, mongo_client: Optional["MongoDBClient"] = None, parent=None):
         super().__init__(parent)
+        self._mongo_client = mongo_client
         self._accepted_credentials: Optional[Tuple[str, str]] = None
         self._mode: str = "annotation"   # "annotation" | "verification"
+        self._selected_scenario: str = ""
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("VIVE Labeler — Connexion")
-        self.setFixedSize(420, 380)
+        self.setFixedSize(420, 440)
         self.setModal(True)
         self.setStyleSheet("""
             QDialog { background: #1e1e2e; }
@@ -39,6 +49,17 @@ class MongoLoginDialog(QDialog):
                 border-radius: 6px; padding: 8px; font-size: 13px;
             }
             QLineEdit:focus { border: 1px solid #89b4fa; }
+            QComboBox {
+                background: #313244; color: #cdd6f4; border: 1px solid #45475a;
+                border-radius: 6px; padding: 8px; font-size: 13px;
+            }
+            QComboBox:focus { border: 1px solid #89b4fa; }
+            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox QAbstractItemView {
+                background: #313244; color: #cdd6f4;
+                selection-background-color: #45475a;
+                border: 1px solid #585b70;
+            }
             QPushButton {
                 background: #89b4fa; color: #1e1e2e; border: none;
                 border-radius: 6px; padding: 10px 24px; font-size: 13px;
@@ -80,6 +101,24 @@ class MongoLoginDialog(QDialog):
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setPlaceholderText("••••••••")
         layout.addWidget(self.password_input)
+
+        # ── Scénario selector ─────────────────────────────────────────
+        sep1 = QFrame()
+        sep1.setFrameShape(QFrame.Shape.HLine)
+        sep1.setStyleSheet("color: #313244; margin: 2px 0;")
+        layout.addWidget(sep1)
+
+        scenario_label = QLabel("Type de session")
+        scenario_label.setStyleSheet("color: #a6adc8; font-size: 11px; font-weight: bold;")
+        layout.addWidget(scenario_label)
+
+        self._scenario_combo = QComboBox()
+        self._scenario_combo.addItem("— Chargement des scénarios… —", "")
+        self._scenario_combo.setEnabled(False)
+        self._scenario_combo.currentIndexChanged.connect(self._on_scenario_changed)
+        layout.addWidget(self._scenario_combo)
+
+        self._load_scenarios()
 
         # ── Mode selector ─────────────────────────────────────────────
         sep = QFrame()
@@ -136,6 +175,47 @@ class MongoLoginDialog(QDialog):
 
     # ------------------------------------------------------------------
 
+    def _load_scenarios(self) -> None:
+        """Charge la liste des scénarios depuis MongoDB et peuple le combo."""
+        if self._mongo_client is None:
+            self._scenario_combo.clear()
+            self._scenario_combo.addItem("(aucun scénario — MongoDB non connecté)", "")
+            self._scenario_combo.setEnabled(False)
+            return
+
+        try:
+            scenarios = self._mongo_client.list_scenarios()
+        except Exception as exc:
+            logger.warning("Impossible de charger les scénarios : %s", exc)
+            self._scenario_combo.clear()
+            self._scenario_combo.addItem("(erreur de chargement des scénarios)", "")
+            self._scenario_combo.setEnabled(False)
+            return
+
+        self._scenario_combo.clear()
+        actifs = [s for s in scenarios if s.get("actif", True)]
+        if not actifs:
+            self._scenario_combo.addItem("(aucun scénario actif en BDD)", "")
+            self._scenario_combo.setEnabled(False)
+            return
+
+        self._scenario_combo.addItem("— Choisir un scénario —", "")
+        for s in sorted(actifs, key=lambda x: (x.get("nom") or x.get("description") or "").lower()):
+            # Support both field names: "nom" (expected) or fallback to other string fields
+            nom = s.get("nom") or s.get("name") or s.get("scenario") or s.get("description") or ""
+            desc = s.get("description", "")
+            label = f"{nom}  —  {desc}" if (nom and desc and nom != desc) else (nom or desc)
+            logger.warning("DEBUG addItem: keys=%s nom=%r desc=%r label=%r", list(s.keys()), nom, desc, label)
+            self._scenario_combo.addItem(label, nom)
+
+        self._scenario_combo.setEnabled(True)
+
+    def _on_scenario_changed(self, index: int) -> None:
+        data = self._scenario_combo.currentData()
+        self._selected_scenario = data if isinstance(data, str) else ""
+
+    # ------------------------------------------------------------------
+
     def _set_mode(self, mode: str) -> None:
         self._mode = mode
         self._refresh_mode_buttons()
@@ -168,6 +248,19 @@ class MongoLoginDialog(QDialog):
         if not password:
             QMessageBox.warning(self, "Erreur", "Veuillez saisir votre mot de passe.")
             return
+        # Relire la valeur courante du combo au moment de valider
+        current_index = self._scenario_combo.currentIndex()
+        current_data = self._scenario_combo.currentData()
+        current_text = self._scenario_combo.currentText()
+        logger.warning(
+            "DEBUG scenario: index=%d data=%r type=%s text=%r _selected=%r",
+            current_index, current_data, type(current_data).__name__, current_text, self._selected_scenario,
+        )
+        if isinstance(current_data, str) and current_data:
+            self._selected_scenario = current_data
+        if not self._selected_scenario:
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un type de session.")
+            return
 
         self._accepted_credentials = (username, password)
         self.accept()
@@ -179,3 +272,7 @@ class MongoLoginDialog(QDialog):
     def get_mode(self) -> str:
         """Return selected mode: 'annotation' or 'verification'."""
         return self._mode
+
+    def get_scenario(self) -> str:
+        """Return the selected scenario name (nom from MongoDB scenarios collection)."""
+        return self._selected_scenario

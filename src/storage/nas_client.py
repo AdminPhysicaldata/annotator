@@ -78,12 +78,21 @@ elif password:
 ssh.connect(**connect_kwargs)
 sftp = ssh.open_sftp()
 
-def ssh_makedirs(ssh, remote_path):
-    safe = remote_path.replace("'", "'\\''")
-    _in, out, err = ssh.exec_command(f"mkdir -p '{safe}'", timeout=15)
-    rc = out.channel.recv_exit_status()
-    if rc != 0:
-        raise IOError(f"mkdir -p '{remote_path}' failed (rc={rc}): {err.read().decode().strip()}")
+def sftp_makedirs(sftp, remote_path):
+    from pathlib import PurePosixPath
+    parts = PurePosixPath(remote_path).parts
+    current = ""
+    for part in parts:
+        current = str(PurePosixPath(current) / part) if current else part
+        if current in ("/", ""):
+            continue
+        try:
+            sftp.stat(current)
+        except IOError:
+            try:
+                sftp.mkdir(current)
+            except IOError:
+                pass  # peut déjà exister (race) ou être la racine
 
 files = sorted(f for f in local_dir.rglob("*") if f.is_file())
 total = len(files)
@@ -98,7 +107,7 @@ for file_path in files:
     remote_dir  = str(remote_path.parent)
     remote_path_str = str(remote_path)
     try:
-        ssh_makedirs(ssh, remote_dir)
+        sftp_makedirs(sftp, remote_dir)
         try:
             sftp.remove(remote_path_str)
         except IOError:
