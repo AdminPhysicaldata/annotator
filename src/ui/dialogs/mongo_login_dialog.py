@@ -205,7 +205,6 @@ class MongoLoginDialog(QDialog):
             nom = s.get("nom") or s.get("name") or s.get("scenario") or s.get("description") or ""
             desc = s.get("description", "")
             label = f"{nom}  —  {desc}" if (nom and desc and nom != desc) else (nom or desc)
-            logger.warning("DEBUG addItem: keys=%s nom=%r desc=%r label=%r", list(s.keys()), nom, desc, label)
             self._scenario_combo.addItem(label, nom)
 
         self._scenario_combo.setEnabled(True)
@@ -249,13 +248,7 @@ class MongoLoginDialog(QDialog):
             QMessageBox.warning(self, "Erreur", "Veuillez saisir votre mot de passe.")
             return
         # Relire la valeur courante du combo au moment de valider
-        current_index = self._scenario_combo.currentIndex()
         current_data = self._scenario_combo.currentData()
-        current_text = self._scenario_combo.currentText()
-        logger.warning(
-            "DEBUG scenario: index=%d data=%r type=%s text=%r _selected=%r",
-            current_index, current_data, type(current_data).__name__, current_text, self._selected_scenario,
-        )
         if isinstance(current_data, str) and current_data:
             self._selected_scenario = current_data
         if not self._selected_scenario:
