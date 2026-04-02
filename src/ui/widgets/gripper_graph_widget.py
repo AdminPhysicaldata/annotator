@@ -42,7 +42,8 @@ class _GripperPlot:
 
     def __init__(self, layout: pg.GraphicsLayout, row: int, gid: str,
                  timestamps: np.ndarray, angles: np.ndarray,
-                 link_to: "pg.PlotItem | None" = None):
+                 link_to: "pg.PlotItem | None" = None,
+                 x_range: "tuple | None" = None):
         self.gid = gid
         self.timestamps = timestamps
         self.angles = angles
@@ -104,6 +105,12 @@ class _GripperPlot:
             self.plot.setYRange(a_min - margin, a_max + margin, padding=0)
         else:
             self.plot.setYRange(0, 1, padding=0)
+
+        # Plage X : toute la durée de la session
+        if x_range is not None:
+            self.plot.setXRange(x_range[0], x_range[1], padding=0)
+        self.plot.setLimits(xMin=x_range[0] if x_range else None,
+                            xMax=x_range[1] if x_range else None)
 
         # ── Curseur vertical ─────────────────────────────────────────────
         self.cursor = pg.InfiniteLine(

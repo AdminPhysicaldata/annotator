@@ -32,14 +32,13 @@ from typing import Optional
 import cv2
 import numpy as np
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QCursor, QFont, QImage, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QCursor, QFont, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton,
     QSizePolicy, QScrollArea, QSlider, QCheckBox, QSplitter, QVBoxLayout, QWidget,
 )
 
 from .viewer_3d_widget import Viewer3DWidget, _TRAJ_PALETTES
-from .gripper_graph_widget import GripperGraphWidget
 from ...core.transforms import Transform3D
 
 # ---------------------------------------------------------------------------
@@ -488,6 +487,184 @@ class _TimelineBar(QWidget):
 
 
 # ---------------------------------------------------------------------------
+# GripperTimelineWidget — rendu QPainter identique à l'annotation timeline
+# ---------------------------------------------------------------------------
+
+_GRIPPER_TRACK_H = 36
+_GRIPPER_COLORS_VER: dict[str, QColor] = {
+    "left":  QColor(255, 200, 50),
+    "right": QColor(50, 200, 255),
+}
+
+
+class GripperTimelineWidget(QWidget):
+    """Affiche les signaux gripper sous forme de waveform QPainter,
+    alignés sur la timeline vidéo en nanosecondes absolues.
+
+    Chaque track occupe _GRIPPER_TRACK_H pixels en hauteur.
+    Le curseur suit set_cursor_ns().
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._start_ns      = 0.0
+        self._end_ns        = 1.0
+        self._cursor_ns     = 0.0
+        self._gripper_ref_ns = 0.0   # origine des timestamps gripper (ns Unix)
+        self._gripper_data: dict = {}  # gid -> (timestamps_s, angles)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._update_height()
+
+    # ------------------------------------------------------------------
+    def _update_height(self) -> None:
+        n = len(self._gripper_data)
+        self.setFixedHeight(max(n * _GRIPPER_TRACK_H, 0))
+
+    def set_range(self, start_ns: float, end_ns: float) -> None:
+        self._start_ns = float(start_ns)
+        self._end_ns   = float(end_ns) if end_ns > start_ns else float(start_ns) + 1.0
+        self.update()
+
+    def set_gripper_ref_ns(self, ref_ns: float) -> None:
+        self._gripper_ref_ns = float(ref_ns)
+        self.update()
+
+    def set_data(self, gripper_data: dict) -> None:
+        """gripper_data: gid -> (timestamps_s np.ndarray, angles np.ndarray)"""
+        self._gripper_data = gripper_data or {}
+        self._update_height()
+        self.update()
+
+    def set_cursor_ns(self, t_ns: float) -> None:
+        self._cursor_ns = float(t_ns)
+        self.update()
+
+    # ------------------------------------------------------------------
+    def paintEvent(self, event) -> None:
+        if not self._gripper_data:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w   = self.width()
+        dur = self._end_ns - self._start_ns
+        if dur <= 0 or w <= 0:
+            return
+
+        margin = 10
+
+        def ns_to_x(t_ns: float) -> int:
+            return int(margin + (t_ns - self._start_ns) / dur * (w - 2 * margin))
+
+        def ts_to_x(t_s: float) -> int:
+            """Convertit un timestamp gripper (secondes depuis ref) en pixel."""
+            return ns_to_x(self._gripper_ref_ns + t_s * 1e9)
+
+        gripper_y = 0
+        for gid, (timestamps, angles) in self._gripper_data.items():
+            color = _GRIPPER_COLORS_VER.get(gid, QColor(200, 200, 200))
+
+            # Background
+            bg = QColor(color)
+            bg.setAlpha(18)
+            p.fillRect(0, gripper_y, w, _GRIPPER_TRACK_H, bg)
+
+            # Separator
+            p.setPen(QPen(QColor("#313244"), 1))
+            p.drawLine(0, gripper_y, w, gripper_y)
+
+            # Label
+            label_color = QColor(color)
+            label_color.setAlpha(180)
+            p.setPen(label_color)
+            p.setFont(QFont("Menlo", 8))
+            side_label = "Left" if gid in ("left", "1") else "Right"
+            p.drawText(margin + 2, gripper_y + 1, w - margin - 4, _GRIPPER_TRACK_H - 2,
+                       Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                       side_label)
+
+            # Waveform
+            if timestamps is not None and angles is not None and len(timestamps) > 1:
+                valid = np.isfinite(angles)
+                if valid.any():
+                    a_min = float(np.nanmin(angles))
+                    a_max = float(np.nanmax(angles))
+                    a_range = a_max - a_min if a_max > a_min else 1.0
+
+                    inner_h   = _GRIPPER_TRACK_H - 6
+                    inner_top = gripper_y + 3
+
+                    # Filled path (fill entre la courbe et le bas)
+                    fill_path = QPainterPath()
+                    line_path = QPainterPath()
+                    first = True
+                    last_px = 0
+                    for ts_val, angle_val in zip(timestamps, angles):
+                        if not np.isfinite(angle_val):
+                            first = True
+                            continue
+                        px_x = ts_to_x(float(ts_val))
+                        norm  = (float(angle_val) - a_min) / a_range
+                        px_y  = inner_top + int((1.0 - norm) * inner_h)
+                        if first:
+                            fill_path.moveTo(px_x, inner_top + inner_h)
+                            fill_path.lineTo(px_x, px_y)
+                            line_path.moveTo(px_x, px_y)
+                            first = False
+                        else:
+                            fill_path.lineTo(px_x, px_y)
+                            line_path.lineTo(px_x, px_y)
+                        last_px = px_x
+                    if not first:
+                        fill_path.lineTo(last_px, inner_top + inner_h)
+                        fill_path.closeSubpath()
+
+                    fill_color = QColor(color)
+                    fill_color.setAlpha(40)
+                    p.setBrush(fill_color)
+                    p.setPen(Qt.PenStyle.NoPen)
+                    p.drawPath(fill_path)
+
+                    line_color = QColor(color)
+                    line_color.setAlpha(220)
+                    p.setPen(QPen(line_color, 1.5))
+                    p.setBrush(Qt.BrushStyle.NoBrush)
+                    p.drawPath(line_path)
+
+                    # Valeur courante : point + label
+                    t_s_cursor = (self._cursor_ns - self._gripper_ref_ns) / 1e9
+                    val = float(np.interp(t_s_cursor,
+                                         timestamps.astype(float),
+                                         angles.astype(float)))
+                    if np.isfinite(val):
+                        norm_val = (val - a_min) / a_range
+                        dot_x = ns_to_x(self._cursor_ns)
+                        dot_y = inner_top + int((1.0 - norm_val) * inner_h)
+                        dot_color = QColor(color)
+                        dot_color.setAlpha(255)
+                        p.setPen(QPen(QColor("#f38ba8"), 1))
+                        p.setBrush(dot_color)
+                        p.drawEllipse(dot_x - 3, dot_y - 3, 6, 6)
+
+                        val_color = QColor(color)
+                        val_color.setAlpha(210)
+                        p.setPen(val_color)
+                        p.setFont(QFont("Menlo", 8))
+                        p.drawText(dot_x + 6, gripper_y + 1, 80, _GRIPPER_TRACK_H - 2,
+                                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                                   f"{val:.1f} mm")
+
+            # Curseur vertical
+            cx = ns_to_x(self._cursor_ns)
+            p.setPen(QPen(QColor("#f38ba8"), 1, Qt.PenStyle.SolidLine))
+            p.drawLine(cx, gripper_y + 1, cx, gripper_y + _GRIPPER_TRACK_H - 1)
+
+            gripper_y += _GRIPPER_TRACK_H
+
+        p.end()
+
+
+# ---------------------------------------------------------------------------
 # _TrackerParamPanel
 # ---------------------------------------------------------------------------
 
@@ -889,6 +1066,7 @@ class VerificationWidget(QWidget):
         self._master_idx    = 0    # current frame of the master camera
         self._start_ns      = 0.0
         self._end_ns        = 1.0
+        self._gripper_ref_ns = 0.0  # _ref_time in ns — origin of gripper timestamps
 
         # Decoder threads
         self._decoders: dict[str, _VideoDecodeThread] = {}
@@ -957,9 +1135,8 @@ class VerificationWidget(QWidget):
         self.viewer_3d = Viewer3DWidget()
         self._vert_splitter.addWidget(self.viewer_3d)
 
-        # ── Gripper graph ──────────────────────────────────────────────
-        self._gripper_widget = GripperGraphWidget()
-        self._gripper_widget.setMaximumHeight(150)
+        # ── Gripper timeline ───────────────────────────────────────────
+        self._gripper_widget = GripperTimelineWidget()
         self._vert_splitter.addWidget(self._gripper_widget)
 
         self._vert_splitter.setSizes([600, 300, 120])
@@ -1325,8 +1502,7 @@ class VerificationWidget(QWidget):
             self.viewer_3d.update_cursors(transforms, traj_idx)
 
         # Gripper cursor
-        t_s = (t_ns - self._start_ns) / 1e9
-        self._gripper_widget.set_current_time(t_s)
+        self._gripper_widget.set_cursor_ns(t_ns)
 
     # ------------------------------------------------------------------
     # Decoder thread callbacks
@@ -1436,6 +1612,12 @@ class VerificationWidget(QWidget):
         self._start_ns, self._end_ns = session.get_timeline_ns()
         self._timeline.set_range(self._start_ns, self._end_ns)
 
+        # Gripper timestamps are relative to session._ref_time (metadata.start_time)
+        try:
+            self._gripper_ref_ns = float(session._ref_time.value)
+        except Exception:
+            self._gripper_ref_ns = self._start_ns
+
         # Start decoders
         self._master_idx = 0
         self._start_decoders(session)
@@ -1453,7 +1635,7 @@ class VerificationWidget(QWidget):
         except Exception:
             pass
 
-        # Gripper graph
+        # Gripper timeline
         gripper_data = {}
         for side in session.metadata.gripper_sides:
             try:
@@ -1462,6 +1644,8 @@ class VerificationWidget(QWidget):
                     gripper_data[side] = (ts, openings)
             except Exception:
                 pass
+        self._gripper_widget.set_range(self._start_ns, self._end_ns)
+        self._gripper_widget.set_gripper_ref_ns(self._gripper_ref_ns)
         self._gripper_widget.set_data(gripper_data)
         self._gripper_widget.setVisible(bool(gripper_data))
 
