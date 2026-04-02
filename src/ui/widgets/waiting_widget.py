@@ -2,10 +2,12 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar,
-    QScrollArea, QFrame, QPushButton,
+    QScrollArea, QFrame, QPushButton, QTabWidget,
 )
 from PyQt6.QtCore import Qt, QTimer, QRectF, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor, QPen, QFont
+
+from .stats_widget import StatsWidget
 
 
 class SpinnerWidget(QWidget):
@@ -164,8 +166,8 @@ class _FileProgressRow(QWidget):
                 self._size_lbl.setText(f"{done / 1_000_000:.1f} Mo")
 
 
-class WaitingWidget(QWidget):
-    """Clean idle screen shown while waiting for a RabbitMQ job."""
+class _WaitingPage(QWidget):
+    """Page interne 'En attente' (contenu original du WaitingWidget)."""
 
     skip_requested = pyqtSignal()
     load_from_nas_requested = pyqtSignal()
@@ -173,16 +175,11 @@ class WaitingWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # label -> _FileProgressRow
         self._rows: dict[str, _FileProgressRow] = {}
         self._setup_ui()
 
     def _setup_ui(self):
-        self.setStyleSheet("""
-            WaitingWidget {
-                background-color: #1e1e2e;
-            }
-        """)
+        self.setStyleSheet("background-color: #1e1e2e;")
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -267,7 +264,6 @@ class WaitingWidget(QWidget):
         dl_header.setStyleSheet("color: #cdd6f4; background: transparent; border: none;")
         frame_layout.addWidget(dl_header)
 
-        # Container for progress rows
         self._rows_container = QWidget()
         self._rows_container.setStyleSheet("background: transparent;")
         self._rows_layout = QVBoxLayout(self._rows_container)
@@ -277,78 +273,51 @@ class WaitingWidget(QWidget):
 
         layout.addWidget(self._progress_frame, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Skip button — visible uniquement pendant le téléchargement
+        # Skip button
         self._skip_btn = QPushButton("⏭  Passer ce job")
         self._skip_btn.setFixedSize(180, 38)
         self._skip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._skip_btn.setStyleSheet("""
             QPushButton {
-                background-color: #313244;
-                color: #cdd6f4;
-                border: 1px solid #45475a;
-                border-radius: 8px;
-                font-size: 12px;
-                font-weight: 600;
+                background-color: #313244; color: #cdd6f4;
+                border: 1px solid #45475a; border-radius: 8px;
+                font-size: 12px; font-weight: 600;
             }
-            QPushButton:hover {
-                background-color: #e64553;
-                border-color: #e64553;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #c0392b;
-            }
+            QPushButton:hover { background-color: #e64553; border-color: #e64553; color: white; }
+            QPushButton:pressed { background-color: #c0392b; }
         """)
         self._skip_btn.clicked.connect(self.skip_requested)
         self._skip_btn.hide()
         layout.addWidget(self._skip_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # NAS browse button — always visible
+        # NAS button
         self._nas_btn = QPushButton("📂  Charger depuis le NAS")
         self._nas_btn.setFixedSize(220, 38)
         self._nas_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._nas_btn.setStyleSheet("""
             QPushButton {
-                background-color: #1e3a5f;
-                color: #58a6ff;
-                border: 1px solid #2a5298;
-                border-radius: 8px;
-                font-size: 12px;
-                font-weight: 600;
+                background-color: #1e3a5f; color: #58a6ff;
+                border: 1px solid #2a5298; border-radius: 8px;
+                font-size: 12px; font-weight: 600;
             }
-            QPushButton:hover {
-                background-color: #2a5298;
-                border-color: #58a6ff;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #1a3a7a;
-            }
+            QPushButton:hover { background-color: #2a5298; border-color: #58a6ff; color: white; }
+            QPushButton:pressed { background-color: #1a3a7a; }
         """)
         self._nas_btn.clicked.connect(self.load_from_nas_requested)
         layout.addWidget(self._nas_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # SPOOL button — récupérer un scénario depuis le serveur SPOOL
+        # SPOOL button
         self._spool_btn = QPushButton("📥  Charger depuis le SPOOL")
         self._spool_btn.setFixedSize(240, 38)
         self._spool_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._spool_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2a1f3d;
-                color: #cba6f7;
-                border: 1px solid #6c5a9e;
-                border-radius: 8px;
-                font-size: 12px;
-                font-weight: 600;
+                background-color: #2a1f3d; color: #cba6f7;
+                border: 1px solid #6c5a9e; border-radius: 8px;
+                font-size: 12px; font-weight: 600;
             }
-            QPushButton:hover {
-                background-color: #6c5a9e;
-                border-color: #cba6f7;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #1a1030;
-            }
+            QPushButton:hover { background-color: #6c5a9e; border-color: #cba6f7; color: white; }
+            QPushButton:pressed { background-color: #1a1030; }
         """)
         self._spool_btn.clicked.connect(self.load_from_spool_requested)
         layout.addWidget(self._spool_btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -356,9 +325,6 @@ class WaitingWidget(QWidget):
         layout.addStretch()
 
     # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def set_status(self, text: str) -> None:
         self.subtitle_label.setText(text)
 
@@ -374,29 +340,113 @@ class WaitingWidget(QWidget):
         self.pulsing_dot.stop()
 
     def reset_file_progress(self) -> None:
-        """Clear all file progress rows (call before starting a new download)."""
         for row in self._rows.values():
             row.deleteLater()
         self._rows.clear()
         self._progress_frame.hide()
 
     def update_file_progress(self, label: str, done: int, total: int) -> None:
-        """Create or update the progress bar for *label*.
-
-        Safe to call from any thread via a Qt QueuedConnection.
-        """
         if label not in self._rows:
             row = _FileProgressRow(label)
             self._rows[label] = row
             self._rows_layout.addWidget(row)
             self._progress_frame.show()
-
         self._rows[label].update_progress(done, total)
 
     def show_skip_button(self) -> None:
-        """Affiche le bouton 'Passer ce job' (pendant un téléchargement ou une attente)."""
         self._skip_btn.show()
 
     def hide_skip_button(self) -> None:
-        """Cache le bouton 'Passer ce job'."""
         self._skip_btn.hide()
+
+
+class WaitingWidget(QWidget):
+    """Écran d'attente avec deux onglets : Attente et Stats pipeline."""
+
+    skip_requested = pyqtSignal()
+    load_from_nas_requested = pyqtSignal()
+    load_from_spool_requested = pyqtSignal()
+
+    _TAB_STYLE = """
+        QTabWidget::pane {
+            border: none;
+            background: #1e1e2e;
+        }
+        QTabBar::tab {
+            background: #181825;
+            color: #6c7086;
+            border: none;
+            padding: 8px 20px;
+            font-size: 12px;
+            min-width: 100px;
+        }
+        QTabBar::tab:selected {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            border-bottom: 2px solid #89b4fa;
+            font-weight: bold;
+        }
+        QTabBar::tab:hover:!selected {
+            background: #313244;
+            color: #cdd6f4;
+        }
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        self.setStyleSheet("WaitingWidget { background-color: #1e1e2e; }")
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        self._tabs = QTabWidget()
+        self._tabs.setStyleSheet(self._TAB_STYLE)
+
+        # Onglet 0 : Attente
+        self._waiting_page = _WaitingPage()
+        self._waiting_page.skip_requested.connect(self.skip_requested)
+        self._waiting_page.load_from_nas_requested.connect(self.load_from_nas_requested)
+        self._waiting_page.load_from_spool_requested.connect(self.load_from_spool_requested)
+        self._tabs.addTab(self._waiting_page, "En attente")
+
+        # Onglet 1 : Stats
+        self.stats_widget = StatsWidget()
+        self._tabs.addTab(self.stats_widget, "Stats Pipeline")
+
+        root.addWidget(self._tabs)
+
+    # ------------------------------------------------------------------
+    # Délégation vers _WaitingPage (API publique inchangée)
+    # ------------------------------------------------------------------
+
+    def set_config(self, hdd_config) -> None:
+        """Transmet la HDDConfig au widget stats."""
+        self.stats_widget.set_config(hdd_config)
+
+    def set_status(self, text: str) -> None:
+        self._waiting_page.set_status(text)
+
+    def set_queue_info(self, text: str) -> None:
+        self._waiting_page.set_queue_info(text)
+
+    def start_animation(self) -> None:
+        self._waiting_page.start_animation()
+
+    def stop_animation(self) -> None:
+        self._waiting_page.stop_animation()
+
+    def reset_file_progress(self) -> None:
+        self._waiting_page.reset_file_progress()
+
+    def update_file_progress(self, label: str, done: int, total: int) -> None:
+        self._waiting_page.update_file_progress(label, done, total)
+
+    def show_skip_button(self) -> None:
+        self._waiting_page.show_skip_button()
+
+    def hide_skip_button(self) -> None:
+        self._waiting_page.hide_skip_button()

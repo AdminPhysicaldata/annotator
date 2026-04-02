@@ -57,11 +57,7 @@ def main():
         )
         config = AppConfig()
 
-    # --- Connect to MongoDB server (with Atlas fallback) ---
-    FALLBACK_CONNECTION_STRING = "mongodb+srv://christoloisel:rose@cluster0.ppyauvl.mongodb.net/"
-    mongo_client = None
-
-    # Try primary connection
+    # --- Connect to MongoDB Atlas ---
     try:
         mongo_client = MongoDBClient(
             connection_string=config.mongodb.connection_string,
@@ -70,31 +66,14 @@ def main():
         )
         if not mongo_client.ping():
             raise ConnectionError("Le serveur n'a pas répondu au ping.")
-        logger.info("Connected to primary MongoDB server")
+        logger.info("Connected to MongoDB Atlas")
     except Exception as exc:
-        logger.warning("Primary MongoDB connection failed (%s) — trying fallback...", exc)
-        # Try fallback Atlas connection
-        try:
-            mongo_client = MongoDBClient(
-                connection_string=FALLBACK_CONNECTION_STRING,
-                database=config.mongodb.database,
-                collection=config.mongodb.collection,
-            )
-            if not mongo_client.ping():
-                raise ConnectionError("Le serveur de secours n'a pas répondu au ping.")
-            logger.info("Connected to fallback MongoDB Atlas server")
-            QMessageBox.information(
-                None, "Connexion de secours",
-                "Connexion au serveur principal impossible.\nUtilisation du serveur de secours (Atlas).",
-            )
-        except Exception as exc2:
-            logger.error("Fallback MongoDB connection also failed: %s", exc2)
-            QMessageBox.critical(
-                None, "Erreur de connexion",
-                f"Impossible de se connecter au serveur MongoDB principal :\n{exc}\n\n"
-                f"Impossible de se connecter au serveur de secours :\n{exc2}",
-            )
-            sys.exit(1)
+        logger.error("MongoDB connection failed: %s", exc)
+        QMessageBox.critical(
+            None, "Erreur de connexion",
+            f"Impossible de se connecter au serveur MongoDB :\n{exc}",
+        )
+        sys.exit(1)
 
     # --- Annotator login dialog ---
     initial_scenario = ""

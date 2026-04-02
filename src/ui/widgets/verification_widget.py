@@ -39,6 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .viewer_3d_widget import Viewer3DWidget, _TRAJ_PALETTES
+from .gripper_graph_widget import GripperGraphWidget
 from ...core.transforms import Transform3D
 
 # ---------------------------------------------------------------------------
@@ -877,9 +878,16 @@ class VerificationWidget(QWidget):
         # ── Viewer 3D unifié ───────────────────────────────────────────
         self.viewer_3d = Viewer3DWidget()
         self._vert_splitter.addWidget(self.viewer_3d)
-        self._vert_splitter.setSizes([600, 300])
+
+        # ── Gripper graph ──────────────────────────────────────────────
+        self._gripper_widget = GripperGraphWidget()
+        self._gripper_widget.setMaximumHeight(150)
+        self._vert_splitter.addWidget(self._gripper_widget)
+
+        self._vert_splitter.setSizes([600, 300, 120])
         self._vert_splitter.setCollapsible(0, False)
         self._vert_splitter.setCollapsible(1, False)
+        self._vert_splitter.setCollapsible(2, True)
 
         self._main_splitter.addWidget(self._vert_splitter)
 
@@ -1232,6 +1240,10 @@ class VerificationWidget(QWidget):
         if transforms:
             self.viewer_3d.update_cursors(transforms, traj_idx)
 
+        # Gripper cursor
+        t_s = (t_ns - self._start_ns) / 1e9
+        self._gripper_widget.set_current_time(t_s)
+
     # ------------------------------------------------------------------
     # Decoder thread callbacks
     # ------------------------------------------------------------------
@@ -1352,6 +1364,18 @@ class VerificationWidget(QWidget):
             # so all viewers get the correct mapping immediately
         except Exception:
             pass
+
+        # Gripper graph
+        gripper_data = {}
+        for side in session.metadata.gripper_sides:
+            try:
+                ts, openings = session.get_gripper_timeseries(side)
+                if ts is not None:
+                    gripper_data[side] = (ts, openings)
+            except Exception:
+                pass
+        self._gripper_widget.set_data(gripper_data)
+        self._gripper_widget.setVisible(bool(gripper_data))
 
         # Seek to frame 0 — also updates label, timeline cursor, trackers
         self._seek_master(0)

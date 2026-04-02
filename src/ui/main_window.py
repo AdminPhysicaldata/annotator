@@ -979,6 +979,9 @@ class MainWindow(QMainWindow):
         self._hdd_waiting_for_prefetch: bool = False          # validate/reject en attente du prefetch
         self._hdd_session_decided: bool = False               # True si la session courante a été validée/rejetée
 
+        # Annotation mode — alternance do/undo à chaque session téléchargée
+        self._annotation_session_count: int = 0  # pair → do, impair → undo
+
         # Async frame loader — decodes video frames off the main thread
         self._frame_loader = FrameLoaderThread(self)
         self._frame_loader.frame_ready.connect(self._on_frame_ready)
@@ -1057,6 +1060,7 @@ class MainWindow(QMainWindow):
         self.waiting_widget.skip_requested.connect(self._on_skip_job)
         self.waiting_widget.load_from_nas_requested.connect(self._on_load_from_nas)
         self.waiting_widget.load_from_spool_requested.connect(self._on_load_from_spool)
+        self.waiting_widget.set_config(self.config.hdd)
         self.stack.addWidget(self.waiting_widget)
 
         # --- Page 1: Annotation workspace ---
@@ -1684,6 +1688,18 @@ class MainWindow(QMainWindow):
     # SPOOL — récupération de scénarios depuis le serveur SPOOL (SFTP)
     # ------------------------------------------------------------------
 
+    def _annotation_inbox(self) -> str:
+        """Retourne le chemin inbox pour le mode annotation en alternant do/reset.
+
+        Pair (0, 2, 4…) → <silver_base>[/<scenario>]/do
+        Impair (1, 3, 5…) → <silver_base>[/<scenario>]/reset
+        """
+        action = "do" if self._annotation_session_count % 2 == 0 else "reset"
+        silver = self.config.hdd.silver_base.rstrip("/")
+        if self._selected_scenario:
+            return f"{silver}/{self._selected_scenario}/{action}"
+        return f"{silver}/{action}"
+
     def _on_load_from_spool(self) -> None:
         """Récupère automatiquement la prochaine session depuis le HDD inbox (même logique que la vérification)."""
         hdd = self.config.hdd
@@ -1694,14 +1710,17 @@ class MainWindow(QMainWindow):
             self._poller_thread.wait(2000)
             self._poller_thread = None
 
-        self.waiting_widget.set_status("Connexion au serveur HDD…")
+        inbox = self._annotation_inbox()
+        action = "do" if self._annotation_session_count % 2 == 0 else "reset"
+        self.waiting_widget.set_status(f"Connexion au serveur HDD… ({action})")
         self.waiting_widget.reset_file_progress()
-        self.statusbar.showMessage("HDD : recherche de la prochaine session…")
+        self.statusbar.showMessage(f"HDD : recherche de la prochaine session ({action})…")
+        logger.info("Annotation HDD inbox: %s (session_count=%d)", inbox, self._annotation_session_count)
 
         self._annotation_hdd_worker = HddVerificationWorker(
             host=hdd.host, port=hdd.port,
             username=hdd.username, password=hdd.password,
-            inbox_base=hdd.silver_base,
+            inbox_base=inbox,
             parent=self,
         )
         self._annotation_hdd_worker.file_progress.connect(self.waiting_widget.update_file_progress)
@@ -1713,6 +1732,7 @@ class MainWindow(QMainWindow):
     def _on_annotation_hdd_download_finished(self, session_id: str, local_files: object) -> None:
         """Téléchargement HDD (annotation) terminé — charger la session."""
         logger.info("Annotation HDD download complete: %s", session_id)
+        self._annotation_session_count += 1
         self.statusbar.showMessage(f"Session '{session_id}' prête.")
         self._load_session(str(local_files.tracker.parent))
         self._show_workspace()
@@ -3545,9 +3565,25 @@ class MainWindow(QMainWindow):
     def _show_workspace(self) -> None:
         """Affiche la page de travail correspondant au mode actif (annotation ou vérification)."""
         if self._mode_btn.isChecked():
+            self._load_session_into_verification_widget()
             self.stack.setCurrentIndex(2)
+            self.verification_widget.setFocus()
         else:
             self.stack.setCurrentIndex(1)
+
+    def _load_session_into_verification_widget(self) -> None:
+        """Alimente le VerificationWidget avec la session courante."""
+        if self.session is None:
+            return
+        self.verification_widget.load_session(self.session)
+        self.verification_widget.set_current_frame(self.current_frame_index, self.session)
+        self.verification_widget.set_info(
+            f"Session : {self.session.metadata.session_id}  |  "
+            f"{self.session.frame_count} frames @ {self.session.fps:.0f} FPS"
+        )
+        self.verification_widget.set_buttons_enabled(True)
+        frames = self.session.get_all_frames(self.current_frame_index)
+        self.verification_widget.set_frames(frames)
 
     def _on_mode_toggled(self, verification_mode: bool) -> None:
         """Switch entre le mode annotation (page 1) et le mode vérification (page 2)."""
@@ -3560,16 +3596,7 @@ class MainWindow(QMainWindow):
         if verification_mode:
             self._mode_btn.setText("✏ Mode Annotation")
             if self.session is not None:
-                # Alimenter le widget de vérification avec la session courante
-                self.verification_widget.load_session(self.session)
-                self.verification_widget.set_current_frame(self.current_frame_index, self.session)
-                self.verification_widget.set_info(
-                    f"Session : {self.session.metadata.session_id}  |  "
-                    f"{self.session.frame_count} frames @ {self.session.fps:.0f} FPS"
-                )
-                self.verification_widget.set_buttons_enabled(True)
-                frames = self.session.get_all_frames(self.current_frame_index)
-                self.verification_widget.set_frames(frames)
+                self._load_session_into_verification_widget()
                 self.stack.setCurrentIndex(2)
                 self.verification_widget.setFocus()
             else:
@@ -3594,12 +3621,11 @@ class MainWindow(QMainWindow):
     def _hdd_inbox_base(self) -> str:
         """Retourne le chemin inbox à utiliser selon le scénario sélectionné au login.
 
-        Si un scénario a été choisi, on cible /mnt/storage/bronze/<scenario>.
-        Sinon on utilise la valeur par défaut de la configuration.
+        Si un scénario a été choisi, on cible bronze_base/<scenario>.
+        Sinon on utilise la valeur par défaut de la configuration (inbox_base).
         """
         if self._selected_scenario:
-            bronze_base = "/mnt/storage/bronze"
-            return f"{bronze_base}/{self._selected_scenario}"
+            return f"{self.config.hdd.bronze_base.rstrip('/')}/{self._selected_scenario}"
         return self.config.hdd.inbox_base
 
     def _make_hdd_worker(self, slot: str) -> HddVerificationWorker:
@@ -3672,7 +3698,9 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(f"Session '{session_id}' prête.")
         self._load_session(str(local_files.tracker.parent))
         if self._mode_btn.isChecked():
+            self._load_session_into_verification_widget()
             self.stack.setCurrentIndex(2)
+            self.verification_widget.setFocus()
         # Démarrer immédiatement le téléchargement de la session suivante
         self._start_hdd_prefetch()
 
@@ -3726,7 +3754,9 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(f"Session '{session_id}' prête (prefetch).")
         self._load_session(str(local_files.tracker.parent))
         if self._mode_btn.isChecked():
+            self._load_session_into_verification_widget()
             self.stack.setCurrentIndex(2)
+            self.verification_widget.setFocus()
         # Enchaîner le prefetch de la session d'après
         self._start_hdd_prefetch()
 
@@ -3913,7 +3943,8 @@ class MainWindow(QMainWindow):
         dlg.setStyleSheet("background: #1e1e2e; color: #cdd6f4;")
         lay = QVBoxLayout(dlg)
         lay.setContentsMargins(16, 16, 16, 16)
-        lbl = QLabel(f"Renvoi de {len(sessions)} session(s) vers {hdd.inbox_base}…")
+        inbox = self._hdd_inbox_base()
+        lbl = QLabel(f"Renvoi de {len(sessions)} session(s) vers {inbox}…")
         lbl.setStyleSheet("color: #cdd6f4; font-size: 12px;")
         lay.addWidget(lbl)
         sub_lbl = QLabel("")
@@ -3930,7 +3961,7 @@ class MainWindow(QMainWindow):
             try:
                 proc = upload_directory_sftp_background(
                     local_dir=local_dir,
-                    nas_dest=f"{hdd.inbox_base.rstrip('/')}/{session_id}",
+                    nas_dest=f"{inbox.rstrip('/')}/{session_id}",
                     host=hdd.host,
                     port=hdd.port,
                     username=hdd.username,

@@ -96,11 +96,12 @@ class SpoolConfig:
 @dataclass
 class HDDConfig:
     """Configuration for the HDD SFTP archive server."""
-    host: str = "192.168.88.82"
+    host: str = "100.109.243.98"
     port: int = 22
     username: str = "exoria"
     password: str = "Admin123456"
     inbox_base: str = "/mnt/storage/pool"
+    bronze_base: str = "/mnt/storage/bronze"
     silver_base: str = "/mnt/storage/silver"
     gold_base: str = "/mnt/storage/gold"
     send_base: str = "/mnt/storage/send"
@@ -110,7 +111,7 @@ class HDDConfig:
 @dataclass
 class MongoDBConfig:
     """Configuration for MongoDB connection."""
-    connection_string: str = "mongodb://192.168.88.17:27017/"
+    connection_string: str = "mongodb+srv://christoloisel:rose@cluster0.ppyauvl.mongodb.net/"
     database: str = "physical_data"
     collection: str = "annotators"
 
@@ -288,6 +289,7 @@ class AppConfig:
                 "username": self.hdd.username,
                 "password": self.hdd.password,
                 "inbox_base": self.hdd.inbox_base,
+                "bronze_base": self.hdd.bronze_base,
                 "silver_base": self.hdd.silver_base,
                 "gold_base": self.hdd.gold_base,
                 "send_base": self.hdd.send_base,
