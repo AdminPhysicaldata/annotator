@@ -96,7 +96,7 @@ class SpoolConfig:
 @dataclass
 class HDDConfig:
     """Configuration for the HDD SFTP archive server."""
-    host: str = "100.109.243.98"
+    host: str = "192.168.88.82"
     port: int = 22
     username: str = "exoria"
     password: str = "Admin123456"
