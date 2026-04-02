@@ -32,7 +32,7 @@ from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QMutex, QMutexLocker
 from PyQt6.QtGui import QAction, QKeySequence, QShortcut, QColor, QFont
 
 from ..core.session_loader import SessionDataLoader
-from ..core.session_swap import swap_cameras_on_disk, swap_trackers_on_disk
+from ..core.session_swap import swap_cameras_on_disk, swap_trackers_on_disk, rename_camera_on_disk
 from ..core.transforms import Transform3D
 # from ..core.seqensor_worker import SeqensorWorker
 from ..labeling.label_manager import LabelManager, Annotation
@@ -1246,6 +1246,8 @@ class MainWindow(QMainWindow):
         self.verification_widget.rejected.connect(self._on_verification_reject)
         self.verification_widget.swap_requested.connect(self._on_camera_swap_requested)
         self.verification_widget.tracker_swap_requested.connect(self._on_tracker_swap_requested)
+        self.verification_widget.camera_rotate_requested.connect(self._on_camera_rotate_requested)
+        self.verification_widget.camera_rename_requested.connect(self._on_camera_rename_requested)
         self.stack.addWidget(self.verification_widget)
 
         # Start on waiting page
@@ -2255,6 +2257,46 @@ class MainWindow(QMainWindow):
             # Cleanup temp file if it still exists
             if temp_path.exists():
                 temp_path.unlink()
+
+    # ------------------------------------------------------------------
+    # Camera rename (disque)
+    # ------------------------------------------------------------------
+
+    def _on_camera_rename_requested(self, old_name: str, new_name: str) -> None:
+        """Renomme une position caméra sur disque puis recharge la session."""
+        if self.session is None:
+            return
+        old_name = old_name.strip()
+        new_name = new_name.strip()
+        if not old_name or not new_name or old_name == new_name:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Renommer la caméra",
+            f"Renommer la caméra « {old_name} » en « {new_name} » ?\n\n"
+            "Cette opération modifie les fichiers vidéo, le CSV des trackers et les métadonnées.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        session_dir = self.session.session_dir
+        self.statusbar.showMessage(f"Renommage {old_name} → {new_name} en cours…")
+        QApplication.processEvents()
+
+        try:
+            self.verification_widget.release_decoders()
+            self.session.release()
+            self.session = None
+            rename_camera_on_disk(session_dir, old_name, new_name)
+        except Exception as e:
+            logger.exception("Renommage caméra échoué")
+            QMessageBox.critical(self, "Erreur", f"Échec du renommage :\n{e}")
+            self.statusbar.showMessage("Renommage échoué")
+        finally:
+            self._load_session(str(session_dir))
+        self.statusbar.showMessage(f"Caméra renommée : {old_name} → {new_name}")
 
     # # ------------------------------------------------------------------
     # # Seqensor — segmentation automatique de la session

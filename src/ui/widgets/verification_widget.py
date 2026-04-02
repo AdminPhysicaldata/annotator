@@ -498,8 +498,11 @@ class _TrackerParamPanel(QWidget):
     S'ouvre / se ferme par animation de largeur.
     """
 
-    changed       = pyqtSignal(dict)  # émet le dict de config complet à chaque changement
-    tracker_swap  = pyqtSignal(str, str)  # (tracker_a, tracker_b)
+    changed              = pyqtSignal(dict)   # émet le dict de config complet à chaque changement
+    tracker_swap         = pyqtSignal(str, str)   # (tracker_a, tracker_b)
+    camera_rotate        = pyqtSignal(str)         # rotation 180° d'une caméra
+    camera_rename        = pyqtSignal(str, str)    # (old_name, new_name)
+    gripper_visibility   = pyqtSignal(bool)        # toggle visibilité grippers
 
     _W_OPEN  = 210
     _W_CLOSE = 0
@@ -665,6 +668,79 @@ class _TrackerParamPanel(QWidget):
             row_w.mousePressEvent = lambda _e, x=a, y=b: self.tracker_swap.emit(x, y)
             lay.addWidget(row_w)
 
+        lay.addWidget(self._sep())
+
+        # ── Caméras ──────────────────────────────────────────────────────
+        lay.addWidget(self._section("Caméras"))
+
+        # Rotation 180°
+        lay.addWidget(QLabel("Rotation 180°"))
+        self._cam_rotate_buttons: dict[str, QPushButton] = {}
+        for cam in ("left", "head", "right"):
+            color = _SWAP_COLORS.get(cam, "#cdd6f4")
+            btn_rot = QPushButton(f"↺  {cam}")
+            btn_rot.setStyleSheet(
+                f"QPushButton {{ background: #252535; color: {color}; border: none; "
+                f"border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; }}"
+                f"QPushButton:hover {{ background: #313244; }}"
+                f"QPushButton:pressed {{ background: #45475a; }}"
+                f"QPushButton:disabled {{ color: #45475a; background: #1e1e2e; }}"
+            )
+            btn_rot.clicked.connect(lambda _, c=cam: self.camera_rotate.emit(c))
+            lay.addWidget(btn_rot)
+            self._cam_rotate_buttons[cam] = btn_rot
+
+        lay.addSpacing(4)
+
+        # Renommer caméra
+        lay.addWidget(QLabel("Renommer caméra"))
+        from PyQt6.QtWidgets import QLineEdit
+        self._rename_combos: dict[str, QLineEdit] = {}
+        for cam in ("left", "head", "right"):
+            color = _SWAP_COLORS.get(cam, "#cdd6f4")
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(4)
+            lbl_cam = QLabel(f"<span style='color:{color};font-weight:bold'>{cam}</span>")
+            lbl_cam.setTextFormat(Qt.TextFormat.RichText)
+            lbl_cam.setFixedWidth(34)
+            edit = QLineEdit()
+            edit.setPlaceholderText(cam)
+            edit.setStyleSheet(
+                "QLineEdit { background: #252535; color: #cdd6f4; border: 1px solid #45475a; "
+                "border-radius: 3px; padding: 2px 5px; font-size: 10px; }"
+                "QLineEdit:focus { border: 1px solid #89b4fa; }"
+            )
+            btn_ok = QPushButton("✓")
+            btn_ok.setFixedWidth(22)
+            btn_ok.setStyleSheet(
+                "QPushButton { background: #313244; color: #a6e3a1; border: none; "
+                "border-radius: 3px; font-size: 11px; }"
+                "QPushButton:hover { background: #45475a; }"
+            )
+            btn_ok.clicked.connect(
+                lambda _, c=cam, e=edit: self.camera_rename.emit(c, e.text().strip()) if e.text().strip() else None
+            )
+            edit.returnPressed.connect(
+                lambda c=cam, e=edit: self.camera_rename.emit(c, e.text().strip()) if e.text().strip() else None
+            )
+            row.addWidget(lbl_cam)
+            row.addWidget(edit, stretch=1)
+            row.addWidget(btn_ok)
+            lay.addLayout(row)
+            self._rename_combos[cam] = edit
+
+        lay.addWidget(self._sep())
+
+        # ── Grippers ─────────────────────────────────────────────────────
+        lay.addWidget(self._section("Grippers"))
+        self._chk_grippers = QCheckBox("Afficher les grippers")
+        self._chk_grippers.setChecked(True)
+        self._chk_grippers.stateChanged.connect(
+            lambda v: self.gripper_visibility.emit(bool(v))
+        )
+        lay.addWidget(self._chk_grippers)
+
         lay.addStretch()
 
         scroll.setWidget(inner)
@@ -794,6 +870,8 @@ class VerificationWidget(QWidget):
     rejected                = pyqtSignal()
     swap_requested          = pyqtSignal(str, str)   # video swap
     tracker_swap_requested  = pyqtSignal(str, str)   # tracker swap
+    camera_rotate_requested = pyqtSignal(str)         # rotation 180° d'une caméra
+    camera_rename_requested = pyqtSignal(str, str)    # (old_name, new_name)
 
     _SLOT_ORDER = ["left", "head", "right"]
 
@@ -895,6 +973,9 @@ class VerificationWidget(QWidget):
         self._param_panel = _TrackerParamPanel()
         self._param_panel.changed.connect(self._on_params_changed)
         self._param_panel.tracker_swap.connect(self.tracker_swap_requested)
+        self._param_panel.camera_rotate.connect(self.camera_rotate_requested)
+        self._param_panel.camera_rename.connect(self.camera_rename_requested)
+        self._param_panel.gripper_visibility.connect(self._on_gripper_visibility)
         self._main_splitter.addWidget(self._param_panel)
 
         # Panneau fermé par défaut
@@ -1022,6 +1103,9 @@ class VerificationWidget(QWidget):
             vid_h = total * (100 - ratio) // 100
             td_h  = total - vid_h
             self._vert_splitter.setSizes([vid_h, td_h])
+
+    def _on_gripper_visibility(self, visible: bool) -> None:
+        self._gripper_widget.setVisible(visible)
 
     # ------------------------------------------------------------------
     # Keyboard
@@ -1355,6 +1439,10 @@ class VerificationWidget(QWidget):
         # Start decoders
         self._master_idx = 0
         self._start_decoders(session)
+
+        # Activer les boutons rotation uniquement pour les caméras présentes
+        for cam, btn in self._param_panel._cam_rotate_buttons.items():
+            btn.setEnabled(cam in self._decoders)
 
         # Auto-detect axis mapping from CSV data and apply to param panel
         try:

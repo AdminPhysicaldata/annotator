@@ -206,3 +206,79 @@ def _swap_metadata(session_dir: Path, pos_a: str, pos_b: str) -> None:
         json.dump(raw, f, indent=2, ensure_ascii=False)
 
     logger.debug("metadata.json mis à jour pour swap %s ↔ %s", pos_a, pos_b)
+
+
+# ── Renommage d'une caméra ────────────────────────────────────────────────────
+
+def rename_camera_on_disk(session_dir: str | Path, old_name: str, new_name: str) -> None:
+    """Renomme une position caméra de old_name en new_name dans toute la session.
+
+    Opérations effectuées :
+      1. videos/{old_name}.mp4  →  videos/{new_name}.mp4
+      2. videos/{old_name}.jsonl →  videos/{new_name}.jsonl  (si présent)
+      3. tracker_positions.csv : colonnes tracker_{old_name}_* → tracker_{new_name}_*
+      4. metadata.json : cameras[id].position et camera_anchors
+
+    Args:
+        session_dir: Répertoire racine de la session.
+        old_name: Nom actuel de la position caméra.
+        new_name: Nouveau nom de la position caméra.
+
+    Raises:
+        ValueError: Si old_name == new_name ou new_name est vide.
+        FileNotFoundError: Si session_dir n'existe pas.
+    """
+    session_dir = Path(session_dir)
+    if not session_dir.is_dir():
+        raise FileNotFoundError(f"Répertoire de session introuvable : {session_dir}")
+    old_name = old_name.strip()
+    new_name = new_name.strip()
+    if not old_name or not new_name:
+        raise ValueError("old_name et new_name ne peuvent pas être vides.")
+    if old_name == new_name:
+        raise ValueError("Les noms doivent être différents.")
+
+    logger.info("Renommage caméra '%s' → '%s' dans %s", old_name, new_name, session_dir)
+
+    # 1. Fichiers vidéo et jsonl
+    videos_dir = session_dir / "videos"
+    if videos_dir.is_dir():
+        vid = _find_video(videos_dir, old_name)
+        if vid is not None:
+            vid.rename(videos_dir / f"{new_name}{vid.suffix}")
+            logger.debug("Vidéo renommée : %s → %s%s", vid.name, new_name, vid.suffix)
+        jsonl = videos_dir / f"{old_name}.jsonl"
+        if jsonl.exists():
+            jsonl.rename(videos_dir / f"{new_name}.jsonl")
+            logger.debug("JSONL renommé : %s.jsonl → %s.jsonl", old_name, new_name)
+
+    # 2. CSV tracker
+    csv_path = session_dir / "tracker_positions.csv"
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+        prefix_old = f"tracker_{old_name}_"
+        prefix_new = f"tracker_{new_name}_"
+        rename_map = {c: prefix_new + c[len(prefix_old):] for c in df.columns if c.startswith(prefix_old)}
+        if rename_map:
+            df = df.rename(columns=rename_map)
+            df.to_csv(csv_path, index=False)
+            logger.debug("CSV : %d colonnes renommées %s → %s", len(rename_map), prefix_old, prefix_new)
+
+    # 3. metadata.json
+    meta_path = session_dir / "metadata.json"
+    if meta_path.exists():
+        with open(meta_path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        cameras = raw.get("cameras", {})
+        if isinstance(cameras, dict):
+            for cam_info in cameras.values():
+                if isinstance(cam_info, dict) and cam_info.get("position") == old_name:
+                    cam_info["position"] = new_name
+        anchors = raw.get("camera_anchors", {})
+        if isinstance(anchors, dict) and old_name in anchors:
+            anchors[new_name] = anchors.pop(old_name)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(raw, f, indent=2, ensure_ascii=False)
+        logger.debug("metadata.json mis à jour : %s → %s", old_name, new_name)
+
+    logger.info("Renommage caméra terminé : '%s' → '%s'", old_name, new_name)
