@@ -274,31 +274,48 @@ class SpoolClient:
                     progress_cb(label, size, total or size)
                 logger.debug("Downloaded %s (%.2f MB)", remote_child, (local_child.stat().st_size / 1e6))
 
+    def _ssh_exec(self, cmd: str, timeout: int = 30) -> bool:
+        """Exécute une commande via SSH exec et retourne True si exit code == 0.
+
+        Draine stdout et stderr avant de lire l'exit code pour éviter un
+        deadlock paramiko sur les canaux à petit buffer.
+        """
+        if self._ssh is None:
+            return False
+        try:
+            _stdin, stdout, stderr = self._ssh.exec_command(cmd, timeout=timeout)
+            # Drainer les deux streams avant recv_exit_status
+            out = stdout.read()
+            err = stderr.read().decode(errors="replace").strip()
+            exit_code = stdout.channel.recv_exit_status()
+            if exit_code == 0:
+                return True
+            logger.warning("SSH exec failed (exit %d): %s — cmd: %s", exit_code, err, cmd)
+            return False
+        except Exception as exc:
+            logger.warning("SSH exec error: %s — cmd: %s", exc, cmd)
+            return False
+
     def _remove_remote_dir(self, remote_dir: str) -> None:
         """Supprime récursivement un dossier sur le serveur SFTP.
 
-        Tente d'abord via SSH exec (rm -rf), plus fiable quand le serveur
-        restreint les opérations SFTP rmdir. Fallback sur suppression SFTP
-        fichier par fichier si SSH exec échoue.
+        Stratégie :
+        1. Tente rm -rf via SSH exec (rapide, une seule commande).
+        2. Si refusé (shell restreint / exit 1) : fallback SFTP fichier par
+           fichier pour vider le contenu.
+        3. Une fois le contenu supprimé, retente rmdir via SSH exec puis via
+           sftp.rmdir.  Une erreur Permission denied sur rmdir est loggée
+           en WARNING (best-effort) — les fichiers ont déjà été retirés,
+           le répertoire vide sera ignoré par les prochains listings.
         """
-        # Tentative via SSH exec — beaucoup plus rapide et fiable
-        if self._ssh is not None:
-            try:
-                # Échapper le chemin pour éviter les injections de shell
-                safe_path = remote_dir.replace("'", "'\\''")
-                _stdin, _stdout, _stderr = self._ssh.exec_command(
-                    f"rm -rf '{safe_path}'", timeout=30
-                )
-                exit_code = _stdout.channel.recv_exit_status()
-                if exit_code == 0:
-                    logger.info("Deleted remote directory via SSH exec: %s", remote_dir)
-                    return
-                err = _stderr.read().decode(errors="replace").strip()
-                logger.warning("SSH exec rm -rf failed (exit %d): %s", exit_code, err)
-            except Exception as exc:
-                logger.warning("SSH exec rm -rf error: %s — falling back to SFTP", exc)
+        safe_path = remote_dir.replace("'", "'\\''")
 
-        # Fallback : suppression SFTP récursive fichier par fichier
+        # 1. Tentative directe rm -rf via SSH exec
+        if self._ssh_exec(f"rm -rf '{safe_path}'"):
+            logger.info("Deleted remote directory via SSH exec: %s", remote_dir)
+            return
+
+        # 2. Fallback : suppression SFTP récursive fichier par fichier
         try:
             entries = self._sftp.listdir_attr(remote_dir)
         except Exception as exc:
@@ -316,11 +333,16 @@ class SpoolClient:
                 except Exception as exc:
                     logger.warning("Cannot delete remote file %s: %s", child, exc)
 
+        # 3. Retenter rm -rf sur le dossier maintenant vide, puis sftp.rmdir
+        if self._ssh_exec(f"rm -rf '{safe_path}'"):
+            logger.info("Deleted remote directory via SSH exec (2nd attempt): %s", remote_dir)
+            return
+
         try:
             self._sftp.rmdir(remote_dir)
             logger.info("Deleted remote directory %s", remote_dir)
         except Exception as exc:
-            logger.warning("Cannot rmdir %s: %s", remote_dir, exc)
+            logger.warning("Cannot rmdir %s: %s — directory may be empty but not removable (best-effort)", remote_dir, exc)
 
     @staticmethod
     def _build_local_job_files(local_root: Path) -> LocalJobFiles:
