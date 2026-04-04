@@ -112,7 +112,7 @@ for file_path in files:
             sftp.remove(remote_path_str)
         except IOError:
             pass
-        sftp.put(str(file_path), remote_path_str)
+        sftp.put(str(file_path), remote_path_str, confirm=False)
         uploaded += 1
         logger.info("[%d/%d] %s", uploaded, total, relative_posix)
     except Exception as exc:
