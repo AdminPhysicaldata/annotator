@@ -681,6 +681,7 @@ class _TrackerParamPanel(QWidget):
     camera_rotate        = pyqtSignal(str)         # rotation 180° d'une caméra
     camera_rename        = pyqtSignal(str, str)    # (old_name, new_name)
     gripper_visibility   = pyqtSignal(bool)        # toggle visibilité grippers
+    tracker_layout_changed = pyqtSignal(str)       # "split" | "unified"
 
     _W_OPEN  = 210
     _W_CLOSE = 0
@@ -910,6 +911,19 @@ class _TrackerParamPanel(QWidget):
 
         lay.addWidget(self._sep())
 
+        # ── Disposition trackers ──────────────────────────────────────────
+        lay.addWidget(self._section("Disposition trackers"))
+        self._cmb_tracker_layout = QComboBox()
+        self._cmb_tracker_layout.addItem("3 vues  (par colonne)", "split")
+        self._cmb_tracker_layout.addItem("1 vue   (unifiée)", "unified")
+        self._cmb_tracker_layout.currentIndexChanged.connect(
+            lambda _: self.tracker_layout_changed.emit(
+                self._cmb_tracker_layout.currentData()
+            )
+        )
+        lay.addWidget(self._cmb_tracker_layout)
+        lay.addWidget(self._sep())
+
         # ── Grippers ─────────────────────────────────────────────────────
         lay.addWidget(self._section("Grippers"))
         self._chk_grippers = QCheckBox("Afficher les grippers")
@@ -1108,6 +1122,10 @@ class VerificationWidget(QWidget):
         # Columns
         self._columns: dict[str, _CameraColumn] = {}
 
+        # Tracker layout mode: "split" (3 vues par colonne) ou "unified" (1 vue)
+        self._tracker_layout: str = "split"
+        self._viewer_unified: Viewer3DWidget | None = None
+
         self._setup_ui()
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -1159,13 +1177,19 @@ class VerificationWidget(QWidget):
 
         self._vert_splitter.addWidget(cols_w)
 
+        # ── Viewer 3D unifié (mode "1 vue") — caché par défaut ────────────
+        self._viewer_unified = Viewer3DWidget()
+        self._viewer_unified.setVisible(False)
+        self._vert_splitter.addWidget(self._viewer_unified)
+
         # ── Gripper timeline ───────────────────────────────────────────
         self._gripper_widget = GripperTimelineWidget()
         self._vert_splitter.addWidget(self._gripper_widget)
 
-        self._vert_splitter.setSizes([900, 120])
+        self._vert_splitter.setSizes([900, 0, 120])
         self._vert_splitter.setCollapsible(0, False)
-        self._vert_splitter.setCollapsible(1, True)
+        self._vert_splitter.setCollapsible(1, False)
+        self._vert_splitter.setCollapsible(2, True)
 
         self._main_splitter.addWidget(self._vert_splitter)
 
@@ -1176,6 +1200,7 @@ class VerificationWidget(QWidget):
         self._param_panel.camera_rotate.connect(self.camera_rotate_requested)
         self._param_panel.camera_rename.connect(self.camera_rename_requested)
         self._param_panel.gripper_visibility.connect(self._on_gripper_visibility)
+        self._param_panel.tracker_layout_changed.connect(self._on_tracker_layout_changed)
         self._main_splitter.addWidget(self._param_panel)
 
         # Panneau fermé par défaut
@@ -1294,10 +1319,46 @@ class VerificationWidget(QWidget):
             self._main_splitter.setSizes([sizes[0] + sizes[1], 0])
 
     def _on_params_changed(self, cfg: dict) -> None:
-        """Propage les paramètres à tous les viewers 3D par colonne."""
+        """Propage les paramètres à tous les viewers 3D actifs."""
         for col in self._columns.values():
             if col.viewer_3d is not None:
                 col.viewer_3d.apply_settings(cfg)
+        if self._viewer_unified is not None:
+            self._viewer_unified.apply_settings(cfg)
+
+    def _on_tracker_layout_changed(self, mode: str) -> None:
+        self._tracker_layout = mode
+        split = (mode == "split")
+        # Colonnes : montrer/cacher le viewer 3D intégré
+        for col in self._columns.values():
+            if col.viewer_3d is not None:
+                col.viewer_3d.setVisible(split)
+        # Viewer unifié
+        self._viewer_unified.setVisible(not split)
+        # Ajuster les tailles du vert_splitter
+        total = self._vert_splitter.height() or 1000
+        gripper_h = 120 if self._gripper_widget.isVisible() else 0
+        if split:
+            self._vert_splitter.setSizes([total - gripper_h, 0, gripper_h])
+        else:
+            content_h = total - gripper_h
+            self._vert_splitter.setSizes([
+                content_h * 55 // 100,
+                content_h * 45 // 100,
+                gripper_h,
+            ])
+        # Reconstruire les trajectoires dans le viewer qui devient visible
+        if self._session is not None:
+            all_pos = self._session.get_all_tracker_positions()
+            if not split:
+                trajectories = {n: pts for n, pts in all_pos.items()
+                                if pts is not None and len(pts) >= 2}
+                self._viewer_unified.build(trajectories)
+                cfg = self._param_panel.config()
+                self._viewer_unified.apply_settings(cfg)
+            # Re-sync curseurs
+            t_ns = self._timeline.cursor_ns
+            self._sync_trackers(t_ns)
 
     def _on_gripper_visibility(self, visible: bool) -> None:
         self._gripper_widget.setVisible(visible)
@@ -1510,20 +1571,28 @@ class VerificationWidget(QWidget):
         except Exception:
             tracker_states = {}
 
-        # Send each tracker transform to its corresponding column viewer
-        for slot, col in self._columns.items():
-            if col.viewer_3d is None:
-                continue
-            tracker_name = col.viewer_3d.tracker_name
-            state = tracker_states.get(tracker_name)
-            if state is None:
-                continue
-            transform = Transform3D(
+        # Build transforms dict
+        transforms: dict[str, Transform3D] = {}
+        for name, state in tracker_states.items():
+            transforms[name] = Transform3D(
                 position=state["position"],
                 rotation=state["quaternion"],
                 rotation_format="quaternion",
             )
-            col.viewer_3d.update_cursors({tracker_name: transform}, traj_idx)
+
+        if self._tracker_layout == "split":
+            # Envoyer chaque tracker au viewer de sa colonne
+            for slot, col in self._columns.items():
+                if col.viewer_3d is None:
+                    continue
+                tracker_name = col.viewer_3d.tracker_name
+                t = transforms.get(tracker_name)
+                if t is not None:
+                    col.viewer_3d.update_cursors({tracker_name: t}, traj_idx)
+        else:
+            # Envoyer tous les trackers au viewer unifié
+            if transforms and self._viewer_unified is not None:
+                self._viewer_unified.update_cursors(transforms, traj_idx)
 
         # Gripper cursor
         self._gripper_widget.set_cursor_ns(t_ns)
@@ -1623,16 +1692,22 @@ class VerificationWidget(QWidget):
         if session is None:
             return
 
-        # Load trajectories into per-column 3D viewers
+        # Load trajectories into all viewers
         all_pos = session.get_all_tracker_positions()
         self._trajectories = {n: all_pos.get(n) for n in _ALL_POSITIONS}
+        trajectories_valid = {n: pts for n, pts in all_pos.items()
+                              if pts is not None and len(pts) >= 2}
+        # Per-column viewers (mode split)
         for slot, col in self._columns.items():
             if col.viewer_3d is None:
                 continue
             tracker_name = col.viewer_3d.tracker_name
-            traj = all_pos.get(tracker_name)
-            if traj is not None and len(traj) >= 2:
+            traj = trajectories_valid.get(tracker_name)
+            if traj is not None:
                 col.viewer_3d.build({tracker_name: traj})
+        # Viewer unifié (mode unified) — chargé même si caché, prêt à l'usage
+        if self._viewer_unified is not None:
+            self._viewer_unified.build(trajectories_valid)
 
         for slot in self._SLOT_ORDER:
             self._columns[slot].set_source(slot)
@@ -1689,16 +1764,20 @@ class VerificationWidget(QWidget):
         """
         self._session = session
 
-        # Rebuild trajectories dans les viewers par colonne
+        # Rebuild trajectories dans tous les viewers
         all_pos = session.get_all_tracker_positions()
         self._trajectories = {n: all_pos.get(n) for n in _ALL_POSITIONS}
+        trajectories_valid = {n: pts for n, pts in all_pos.items()
+                              if pts is not None and len(pts) >= 2}
         for slot, col in self._columns.items():
             if col.viewer_3d is None:
                 continue
             tracker_name = col.viewer_3d.tracker_name
-            traj = all_pos.get(tracker_name)
-            if traj is not None and len(traj) >= 2:
+            traj = trajectories_valid.get(tracker_name)
+            if traj is not None:
                 col.viewer_3d.build({tracker_name: traj})
+        if self._viewer_unified is not None:
+            self._viewer_unified.build(trajectories_valid)
 
         # Re-sync les curseurs au timestamp courant
         master_cap_ns = self._capture_ns.get(self._master_pos)
