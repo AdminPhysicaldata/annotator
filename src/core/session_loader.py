@@ -422,10 +422,136 @@ class SessionDataLoader:
                 logger.warning("Gripper '%s' has no valid data after parsing — skipping", side)
                 continue
 
+            df = self._clean_gripper_df(df, side)
+            if len(df) < 2:
+                logger.warning("Gripper '%s': fewer than 2 rows after cleaning — skipping", side)
+                continue
+
             result[side] = df
             logger.info("Gripper '%s': %d rows from %s", side, len(df), csv_path.name)
 
         return result
+
+    def _clean_gripper_df(self, df: pd.DataFrame, side: str) -> pd.DataFrame:
+        """Clean and normalise a raw gripper DataFrame.
+
+        Steps (applied in order):
+        1. Drop rows with t < 0.
+        2. Detect and discard pre-reset block (initial counter at 150+ that
+           then resets to ~0 — identified by a backward jump > 50 s).
+        3. Recalculate t from the raw ``timestamp`` column when available so
+           that t always starts at 0 and is free of counter drift.
+        4. Sort by t, deduplicate.
+        5. Log warnings for abnormal timestamp jumps (continuity check).
+        6. Apply centred rolling-mean smoothing (window=5) on opening_mm and
+           angle_deg.
+        7. Interpolate isolated outliers in opening_mm (IQR × 3 fence).
+        """
+        # 1. Remove negative-time rows
+        n_before = len(df)
+        df = df[df["t"] >= 0].copy()
+        removed = n_before - len(df)
+        if removed:
+            logger.info("Gripper '%s': removed %d row(s) with t < 0", side, removed)
+
+        if len(df) < 2:
+            return df
+
+        # 2. Detect and discard pre-reset block
+        t_vals = df["t"].values
+        reset_idx = None
+        for i in range(1, len(t_vals)):
+            if t_vals[i] < t_vals[i - 1] - 50.0:   # backward jump > 50 s
+                reset_idx = i
+                break
+        if reset_idx is not None:
+            logger.info(
+                "Gripper '%s': time reset at index %d (%.1f → %.1f s) — "
+                "discarding %d pre-reset row(s)",
+                side, reset_idx, t_vals[reset_idx - 1], t_vals[reset_idx], reset_idx,
+            )
+            df = df.iloc[reset_idx:].copy()
+
+        if len(df) < 2:
+            return df
+
+        # 3. Recalculate t from raw timestamp when available
+        if "timestamp" in df.columns:
+            ts_raw = pd.to_numeric(df["timestamp"], errors="coerce")
+            valid_ts = ts_raw.dropna()
+            if not valid_ts.empty:
+                t0 = float(valid_ts.iloc[0])
+                new_t = ts_raw - t0
+                if (new_t.dropna() >= 0).all():
+                    df = df.copy()
+                    df["t"] = new_t
+                    logger.info(
+                        "Gripper '%s': t recalculated from timestamp (origin=%.3f)", side, t0
+                    )
+
+        # 4. Sort by t, remove duplicates
+        df = (
+            df.sort_values("t")
+            .drop_duplicates(subset="t", keep="last")
+            .reset_index(drop=True)
+        )
+
+        if len(df) < 2:
+            return df
+
+        # 5. Continuity check — log abnormal jumps
+        dt = df["t"].diff().iloc[1:]
+        if not dt.empty:
+            median_dt = float(dt.median())
+            threshold = max(median_dt * 20, 1.0)
+            n_jumps = int((dt > threshold).sum())
+            if n_jumps:
+                logger.warning(
+                    "Gripper '%s': %d abnormal timestamp jump(s) "
+                    "(median_dt=%.4f s, threshold=%.2f s)",
+                    side, n_jumps, median_dt, threshold,
+                )
+
+        # 6. Rolling-mean smoothing
+        window = 5
+        if "opening_mm" in df.columns and len(df) >= window:
+            df["opening_mm"] = (
+                df["opening_mm"]
+                .rolling(window=window, center=True, min_periods=1)
+                .mean()
+            )
+        if "angle_deg" in df.columns and len(df) >= window:
+            numeric_angle = pd.to_numeric(df["angle_deg"], errors="coerce")
+            if numeric_angle.notna().sum() > 0:
+                df["angle_deg"] = (
+                    numeric_angle
+                    .rolling(window=window, center=True, min_periods=1)
+                    .mean()
+                )
+
+        # 7. Interpolate isolated outliers in opening_mm (IQR × 3 fence)
+        if "opening_mm" in df.columns and len(df) > 4:
+            col = df["opening_mm"]
+            q25, q75 = float(col.quantile(0.25)), float(col.quantile(0.75))
+            iqr = q75 - q25
+            if iqr > 0:
+                lo, hi = q25 - 3.0 * iqr, q75 + 3.0 * iqr
+                mask = (col < lo) | (col > hi)
+                n_out = int(mask.sum())
+                if n_out:
+                    df.loc[mask, "opening_mm"] = np.nan
+                    df["opening_mm"] = (
+                        df["opening_mm"]
+                        .interpolate(method="linear")
+                        .ffill()
+                        .bfill()
+                    )
+                    logger.info(
+                        "Gripper '%s': interpolated %d outlier(s) in opening_mm",
+                        side, n_out,
+                    )
+
+        return df
 
     @staticmethod
     def _parse_packed_serial(raw: str) -> dict:
