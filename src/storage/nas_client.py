@@ -78,12 +78,12 @@ elif password:
 ssh.connect(**connect_kwargs)
 sftp = ssh.open_sftp()
 
-def sftp_makedirs(sftp, remote_path):
-    from pathlib import PurePosixPath
-    parts = PurePosixPath(remote_path).parts
+def sftp_makedirs(path_str):
+    # Crée l'arborescence via SFTP niveau par niveau (respecte les ACL Synology DSM)
+    from pathlib import PurePosixPath as PPP
     current = ""
-    for part in parts:
-        current = str(PurePosixPath(current) / part) if current else part
+    for part in PPP(path_str).parts:
+        current = str(PPP(current) / part) if current else part
         if current in ("/", ""):
             continue
         try:
@@ -92,7 +92,48 @@ def sftp_makedirs(sftp, remote_path):
             try:
                 sftp.mkdir(current)
             except IOError:
-                pass  # peut déjà exister (race) ou être la racine
+                pass  # existe déjà (race) ou parent manquant — géré au niveau suivant
+
+def ssh_exec(cmd):
+    try:
+        _, stdout, _ = ssh.exec_command(cmd)
+        return stdout.channel.recv_exit_status()
+    except Exception:
+        return -1
+
+def makedirs(path_str):
+    # 1. SFTP mkdir niveau par niveau (ACL DSM)
+    sftp_makedirs(path_str)
+    # Vérifier si le répertoire existe maintenant
+    try:
+        sftp.stat(path_str)
+        return True
+    except IOError:
+        pass
+    # 2. SSH exec mkdir -p
+    if ssh_exec(f"mkdir -p '{path_str}'") == 0:
+        try:
+            sftp.stat(path_str)
+            return True
+        except IOError:
+            pass
+    # 3. SSH exec sudo mkdir -p (Synology admin sans mot de passe)
+    if ssh_exec(f"sudo mkdir -p '{path_str}' && sudo chown {username} '{path_str}'") == 0:
+        try:
+            sftp.stat(path_str)
+            return True
+        except IOError:
+            pass
+    return False
+
+def ssh_rm(path_str):
+    try:
+        sftp.remove(path_str)
+        return
+    except IOError:
+        pass
+    ssh_exec(f"rm -f '{path_str}'")
+    ssh_exec(f"sudo rm -f '{path_str}'")
 
 files = sorted(f for f in local_dir.rglob("*") if f.is_file())
 total = len(files)
@@ -100,18 +141,33 @@ logger.info("Fichiers à uploader : %d", total)
 uploaded = 0
 errors = 0
 
+# --- Vérification précoce des permissions d'écriture ---
+if not makedirs(nas_dest):
+    logger.error(
+        "PERMISSION REFUSÉE : impossible de créer le dossier distant '%s'.\n"
+        "Vérifiez que l'utilisateur '%s' a les droits d'écriture sur ce répertoire "
+        "dans le panneau d'administration du NAS (DSM > Dossiers partagés > Permissions).",
+        nas_dest, username,
+    )
+    sftp.close()
+    ssh.close()
+    sys.exit(1)
+
+# Créer tous les sous-dossiers nécessaires en amont
+seen_dirs = {nas_dest}
 for file_path in files:
-    # Construire le chemin distant en POSIX pur (forward slashes)
     relative_posix = PurePosixPath(*file_path.relative_to(local_dir).parts)
-    remote_path = PurePosixPath(nas_dest) / relative_posix
-    remote_dir  = str(remote_path.parent)
-    remote_path_str = str(remote_path)
+    remote_dir = str((PurePosixPath(nas_dest) / relative_posix).parent)
+    if remote_dir not in seen_dirs:
+        makedirs(remote_dir)
+        seen_dirs.add(remote_dir)
+
+for file_path in files:
+    relative_posix = PurePosixPath(*file_path.relative_to(local_dir).parts)
+    remote_path_str = str(PurePosixPath(nas_dest) / relative_posix)
     try:
-        sftp_makedirs(sftp, remote_dir)
-        try:
-            sftp.remove(remote_path_str)
-        except IOError:
-            pass
+        # Supprimer l'éventuel fichier existant (peut appartenir à un autre utilisateur)
+        ssh_rm(remote_path_str)
         sftp.put(str(file_path), remote_path_str, confirm=False)
         uploaded += 1
         logger.info("[%d/%d] %s", uploaded, total, relative_posix)

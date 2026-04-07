@@ -1091,6 +1091,7 @@ class VerificationWidget(QWidget):
     tracker_swap_requested  = pyqtSignal(str, str)   # tracker swap
     camera_rotate_requested = pyqtSignal(str)         # rotation 180° d'une caméra
     camera_rename_requested = pyqtSignal(str, str)    # (old_name, new_name)
+    rotate_all_requested    = pyqtSignal()            # rotation 180° de toutes les vidéos
 
     _SLOT_ORDER = ["left", "head", "right"]
 
@@ -1294,6 +1295,19 @@ class VerificationWidget(QWidget):
             "Vérifiez les vidéos et les trajectoires, puis validez ou rejetez.")
         self._info_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
         bl.addWidget(self._info_label, stretch=1)
+        self._rotate_all_btn = QPushButton("↻  Pivoter les 3 vidéos de 180°")
+        self._rotate_all_btn.setToolTip(
+            "Applique une rotation 180° permanente à toutes les vidéos de la session via FFmpeg."
+        )
+        self._rotate_all_btn.setStyleSheet(
+            "QPushButton { background: #313244; color: #cdd6f4; border: 2px solid #45475a; "
+            "border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: bold; }"
+            "QPushButton:hover { background: #45475a; border-color: #89b4fa; color: #89b4fa; }"
+            "QPushButton:pressed { background: #1e1e2e; }"
+            "QPushButton:disabled { color: #585b70; border-color: #313244; }"
+        )
+        self._rotate_all_btn.clicked.connect(self.rotate_all_requested)
+        bl.addWidget(self._rotate_all_btn)
         self._validate_btn = QPushButton("✓ Valider")
         self._validate_btn.setStyleSheet(_BTN_OK)
         self._validate_btn.clicked.connect(self._on_validate)

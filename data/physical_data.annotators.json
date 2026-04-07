@@ -1,0 +1,280 @@
+[{
+  "_id": {
+    "$oid": "69adba32b6950cfc24fbd9e6"
+  },
+  "numero_poste": "A1",
+  "username": "Jawad",
+  "password": "jawad",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-08T18:04:34.615Z"
+  },
+  "role": "annotator"
+},
+{
+  "_id": {
+    "$oid": "69bd8a2d491dbfa7dab5a2d9"
+  },
+  "numero_poste": "A1",
+  "username": "Jawad2",
+  "password": "jawad2",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-08T18:04:34.615Z"
+  },
+  "role": "chef"
+},
+{
+  "_id": {
+    "$oid": "69c0eb15e815c5bc9ce9df2b"
+  },
+  "numero_poste": "A6",
+  "username": "Judicael",
+  "password": "Cael*1554",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:26:13.061Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0eb6fe815c5bc9ce9df30"
+  },
+  "numero_poste": "A7",
+  "username": "Harinavalona",
+  "password": "NouveauKandra2026/",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:27:43.506Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ebb1e815c5bc9ce9df33"
+  },
+  "numero_poste": "A8",
+  "username": "Rojo",
+  "password": "Fahasoavan@0107",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:28:49.999Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ebe6e815c5bc9ce9df36"
+  },
+  "numero_poste": "A9",
+  "username": "Emélie",
+  "password": "Ny15IlainaKN",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:29:42.230Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ec08e815c5bc9ce9df39"
+  },
+  "numero_poste": "A10",
+  "username": "Tsivery",
+  "password": "RT1234erT",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:30:16.117Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ec30e815c5bc9ce9df3c"
+  },
+  "numero_poste": "A5",
+  "username": "Fifaliana",
+  "password": "Fyfahl*123",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:30:56.208Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ec5fe815c5bc9ce9df3f"
+  },
+  "numero_poste": "A4",
+  "username": "Kajy",
+  "password": "Exoriq029",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:31:43.210Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ec76e815c5bc9ce9df42"
+  },
+  "numero_poste": "A6",
+  "username": "Tsila",
+  "password": "1234",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:32:06.916Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ecc4e815c5bc9ce9df45"
+  },
+  "numero_poste": "A9",
+  "username": "Stephanya",
+  "password": "Real!M@drid!",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:33:24.136Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ecefe815c5bc9ce9df48"
+  },
+  "numero_poste": "A1",
+  "username": "Faniry",
+  "password": "Aroniaina21",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:34:07.279Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c0ed4de815c5bc9ce9df4d"
+  },
+  "numero_poste": "A11",
+  "username": "Ezeckiel",
+  "password": "Kibamaty32",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T07:35:41.135Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13b19e815c5bc9ce9df5e"
+  },
+  "numero_poste": "A7",
+  "username": "teddy",
+  "password": "Sp1dee@010105",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:07:37.620Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13b2ca6c7aa1eeb1a24cd"
+  },
+  "numero_poste": "A6",
+  "username": "Santatra Mickael",
+  "password": "8032MIKA",
+  "email": "",
+  "role": "chef",
+  "created_at": {
+    "$date": "2026-03-23T13:07:56.881Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13b64e815c5bc9ce9df65"
+  },
+  "numero_poste": "A10",
+  "username": "Finoana",
+  "password": "Finoana#2402",
+  "email": "",
+  "role": "chef",
+  "created_at": {
+    "$date": "2026-03-23T13:08:52.225Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13b69e815c5bc9ce9df6a"
+  },
+  "numero_poste": "A2",
+  "username": "Randy",
+  "password": "Randy2025",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:08:57.932Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13b7fe815c5bc9ce9df6d"
+  },
+  "numero_poste": "A8",
+  "username": "joel",
+  "password": "Jass*1994",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:09:19.878Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13ba1e815c5bc9ce9df70"
+  },
+  "numero_poste": "A4",
+  "username": "Fanomezana",
+  "password": "F@no2405",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:09:53.500Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13ba2e815c5bc9ce9df73"
+  },
+  "numero_poste": "A1",
+  "username": "Tiana",
+  "password": "AndriA0341677444",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:09:54.426Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13bb2e815c5bc9ce9df76"
+  },
+  "numero_poste": "A5",
+  "username": "JeanMarc",
+  "password": "JeanMarc026",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:10:10.355Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13be0e815c5bc9ce9df79"
+  },
+  "numero_poste": "A9",
+  "username": "Tombotsoa",
+  "password": "Nekena",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:10:56.229Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69c13be4e815c5bc9ce9df7c"
+  },
+  "numero_poste": "A3",
+  "username": "Aina",
+  "password": "Exoria27282930aina",
+  "email": "",
+  "created_at": {
+    "$date": "2026-03-23T13:11:00.253Z"
+  }
+}]

@@ -695,7 +695,7 @@ class SessionDataLoader:
                         continue
 
             if not entries:
-                return None
+                return None, None
 
             # Sort by index to ensure correct order
             entries.sort(key=lambda e: e.get("index", 0))

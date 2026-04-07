@@ -65,19 +65,10 @@ class MongoDBClient:
         """Check username/password against the annotators collection (plaintext).
 
         The document structure is:
-            { username, password (plaintext), numero_poste, email, created_at }
+            { username, password (plaintext), numero_poste, email, created_at, role }
 
         Never raises — returns False on any DB or network error.
         """
-        _HARDCODED_USERS = {
-            "Jawad": {"password": "jawad", "numero_poste": "1", "role": "annotator"},
-            "christopher": {"password": "christopher", "numero_poste": "0", "role": "chef"},
-        }
-        if username in _HARDCODED_USERS and password == _HARDCODED_USERS[username]["password"]:
-            self._current_user = {"username": username, **_HARDCODED_USERS[username]}
-            logger.info("Authenticated user '%s' (hardcoded)", username)
-            return True
-
         try:
             user = self._collection.find_one({"username": username})
         except Exception as exc:
@@ -170,15 +161,18 @@ class MongoDBClient:
     def list_scenarios(self) -> List[Dict[str, Any]]:
         """Return all scenario documents (nom + description + actif).
 
-        Falls back to the bundled JSON file if the DB returns no active scenarios.
+        Falls back to the bundled JSON file only if the DB query fails or
+        returns no documents at all.
         """
         try:
             docs = list(self._db["scenarios"].find(
                 {},
                 {"nom": 1, "description": 1, "actif": 1, "labels": 1}
             ))
-            if any(d.get("actif") for d in docs):
+            if docs:
+                logger.info("list_scenarios: %d scénario(s) depuis MongoDB", len(docs))
                 return docs
+            logger.warning("list_scenarios: collection vide dans MongoDB — fallback fichier")
         except Exception as exc:
             logger.error("MongoDB list_scenarios failed: %s", exc)
 
@@ -262,3 +256,31 @@ class MongoDBClient:
         except Exception as exc:
             logger.error("MongoDB delete failed: %s", exc)
             return 0
+
+    # ------------------------------------------------------------------
+    # Session counter
+    # ------------------------------------------------------------------
+
+    def increment_session_count(self, username: str) -> bool:
+        """Increment the session_count field for the given annotator.
+
+        Uses $inc so the field is created automatically if absent.
+        Returns True on success, False on any error.
+        """
+        from datetime import datetime, timezone
+        try:
+            result = self._collection.update_one(
+                {"username": username},
+                {
+                    "$inc": {"session_count": 1},
+                    "$set": {"last_session_at": datetime.now(timezone.utc)},
+                },
+            )
+            if result.matched_count == 0:
+                logger.warning("increment_session_count: user '%s' not found", username)
+                return False
+            logger.info("Session count incremented for '%s'", username)
+            return True
+        except Exception as exc:
+            logger.error("MongoDB increment_session_count failed: %s", exc)
+            return False

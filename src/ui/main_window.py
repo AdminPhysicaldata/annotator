@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
     QDialog, QLabel, QDialogButtonBox, QScrollArea,
     QListWidget, QListWidgetItem, QLineEdit, QFrame, QCheckBox,
     QTreeWidget, QTreeWidgetItem, QHeaderView, QSlider, QGroupBox,
+    QComboBox,
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QMutex, QMutexLocker
 from PyQt6.QtGui import QAction, QKeySequence, QShortcut, QColor, QFont
@@ -45,6 +46,7 @@ from ..queue.rabbitmq_consumer import (
     ScenarioPrefetcher, PrefetchedScenario,
 )
 from ..utils.config import AppConfig
+from ..utils.ffmpeg_manager import get_ffmpeg_path, download_ffmpeg_with_dialog, is_ffmpeg_available
 from ..core.csv_validator import validate_job_csvs
 from .widgets.multi_video_widget import MultiVideoWidget
 from .widgets.annotation_timeline import AnnotationTimeline
@@ -1022,6 +1024,9 @@ class MainWindow(QMainWindow):
         if self._initial_mode == "verification":
             self._mode_btn.setChecked(True)
 
+        # Vérifier la disponibilité de FFmpeg (téléchargement en arrière-plan si absent)
+        QTimer.singleShot(800, self._ensure_ffmpeg_available)
+
         # Clean stale temp dirs then recover orphan sessions left from a previous run
         QTimer.singleShot(500, self._cleanup_stale_temp_dirs)
         QTimer.singleShot(600, self._recover_orphan_sessions)
@@ -1159,10 +1164,36 @@ class MainWindow(QMainWindow):
         scenario_label.setStyleSheet("color: #a6adc8; font-size: 11px; font-weight: bold;")
         scenario_layout.addWidget(scenario_label)
 
-        self.scenario_input = QLineEdit()
-        self.scenario_input.setPlaceholderText("Ex: Goblets, Jean, Serviettes, Balles...")
-        self.scenario_input.setStyleSheet(_input_style)
+        _combo_style = """
+            QComboBox {
+                background: #1e1e2e;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-size: 11px;
+                min-width: 160px;
+            }
+            QComboBox:focus {
+                border: 1px solid #89b4fa;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 18px;
+            }
+            QComboBox QAbstractItemView {
+                background: #1e1e2e;
+                color: #cdd6f4;
+                border: 1px solid #45475a;
+                selection-background-color: #89b4fa;
+                selection-color: #1e1e2e;
+                outline: none;
+            }
+        """
+        self.scenario_input = QComboBox()
+        self.scenario_input.setStyleSheet(_combo_style)
         scenario_layout.addWidget(self.scenario_input)
+        self._populate_scenario_combo(select=self._selected_scenario)
         buttons_layout.addWidget(scenario_container)
 
         self.upload_btn = QPushButton("⬆ Upload")
@@ -1248,6 +1279,7 @@ class MainWindow(QMainWindow):
         self.verification_widget.tracker_swap_requested.connect(self._on_tracker_swap_requested)
         self.verification_widget.camera_rotate_requested.connect(self._on_camera_rotate_requested)
         self.verification_widget.camera_rename_requested.connect(self._on_camera_rename_requested)
+        self.verification_widget.rotate_all_requested.connect(self._on_rotate_all_videos)
         self.stack.addWidget(self.verification_widget)
 
         # Start on waiting page
@@ -1446,13 +1478,44 @@ class MainWindow(QMainWindow):
         )
         return True
 
+    def _populate_scenario_combo(self, select: str = "") -> None:
+        """Charge la liste des scénarios depuis MongoDB et peuple la liste déroulante."""
+        self.scenario_input.clear()
+        scenarios: list = []
+        if self.mongo_client:
+            try:
+                scenarios = self.mongo_client.list_scenarios()
+            except Exception as exc:
+                logger.warning("Impossible de charger les scénarios depuis MongoDB: %s", exc)
+        actifs = [s for s in scenarios if s.get("actif", True)]
+        if not actifs:
+            actifs = scenarios
+        for s in sorted(actifs, key=lambda x: (x.get("nom") or "").lower()):
+            nom = s.get("nom") or ""
+            if nom:
+                self.scenario_input.addItem(nom, nom)
+        if select:
+            self._set_scenario_combo(select)
+
+    def _set_scenario_combo(self, value: str) -> None:
+        """Sélectionne un scénario dans la liste déroulante (l'ajoute si absent)."""
+        if not value:
+            self.scenario_input.setCurrentIndex(-1)
+            return
+        idx = self.scenario_input.findData(value)
+        if idx >= 0:
+            self.scenario_input.setCurrentIndex(idx)
+        else:
+            self.scenario_input.insertItem(0, value, value)
+            self.scenario_input.setCurrentIndex(0)
+
     def _open_scenario_label_manager(self) -> None:
         """Ouvre le dialogue de gestion des labels (réservé aux chefs)."""
         if not self.mongo_client or not self.mongo_client.is_chef:
             QMessageBox.warning(self, "Accès refusé", "Seuls les chefs peuvent gérer les labels.")
             return
 
-        scenario_name = self.scenario_input.text().strip() if hasattr(self, "scenario_input") else ""
+        scenario_name = (self.scenario_input.currentData() or "") if hasattr(self, "scenario_input") else ""
         if not scenario_name:
             QMessageBox.warning(
                 self,
@@ -1976,7 +2039,7 @@ class MainWindow(QMainWindow):
 
             # Populate scenario input from session metadata (or clear if absent)
             scenario_from_meta = self.session.metadata.scenario_name
-            self.scenario_input.setText(scenario_from_meta)
+            self._set_scenario_combo(scenario_from_meta)
 
             # Charger les labels depuis la BDD (scénario), sinon fallback sur les defaults
             self.label_manager.labels.clear()
@@ -2034,6 +2097,83 @@ class MainWindow(QMainWindow):
                 f"Impossible de charger la session :\n{e}",
             )
             self.statusbar.showMessage("Échec du chargement de session")
+
+    # ------------------------------------------------------------------
+    # Rotate ALL videos (disque)
+    # ------------------------------------------------------------------
+
+    def _on_rotate_all_videos(self) -> None:
+        """Applique une rotation 180° permanente à toutes les vidéos de la session."""
+        if self.session is None:
+            return
+
+        # Vérifier / télécharger ffmpeg
+        if not is_ffmpeg_available():
+            ok = download_ffmpeg_with_dialog(self)
+            if not ok:
+                return
+
+        n_cameras = len(self.session.cameras)
+        reply = QMessageBox.question(
+            self,
+            "Pivoter toutes les vidéos",
+            f"Pivoter les {n_cameras} vidéo(s) de la session de 180° ?\n\n"
+            "Cette opération est permanente et ré-encodera chaque vidéo avec FFmpeg.\n"
+            "Cela peut prendre plusieurs dizaines de secondes.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        session_dir = self.session.session_dir
+        camera_ids = list(self.session.cameras.keys())
+
+        # Trouver les chemins vidéo
+        video_paths: list[Path] = []
+        for cam_id in camera_ids:
+            for ext in (".mp4", ".avi", ".mkv"):
+                p = session_dir / "videos" / f"{cam_id}{ext}"
+                if p.exists():
+                    video_paths.append(p)
+                    break
+
+        if not video_paths:
+            QMessageBox.warning(self, "Erreur", "Aucun fichier vidéo trouvé dans la session.")
+            return
+
+        self.verification_widget._rotate_all_btn.setEnabled(False)
+        self.statusbar.showMessage("Rotation de toutes les vidéos en cours…")
+        QApplication.processEvents()
+
+        try:
+            self.verification_widget.release_decoders()
+            self.session.release()
+            self.session = None
+
+            errors: list[str] = []
+            for i, vp in enumerate(video_paths):
+                self.statusbar.showMessage(
+                    f"Rotation vidéo {i + 1}/{len(video_paths)} : {vp.name}…"
+                )
+                QApplication.processEvents()
+                try:
+                    self._rotate_video_180(vp)
+                except Exception as exc:
+                    errors.append(f"{vp.name}: {exc}")
+
+            if errors:
+                QMessageBox.warning(
+                    self,
+                    "Rotation partielle",
+                    "Certaines vidéos n'ont pas pu être pivotées :\n\n" + "\n".join(errors),
+                )
+        except Exception as e:
+            logger.exception("Rotation globale échouée")
+            QMessageBox.critical(self, "Erreur", f"Échec de la rotation :\n{e}")
+            self.statusbar.showMessage("Rotation échouée")
+
+        self._load_session(str(session_dir))
+        self.verification_widget._rotate_all_btn.setEnabled(True)
 
     # ------------------------------------------------------------------
     # Camera swap permanent (disque)
@@ -2215,17 +2355,19 @@ class MainWindow(QMainWindow):
         import subprocess
         import tempfile
         import shutil
+        import os
+
+        ffmpeg_bin = get_ffmpeg_path()
 
         # Create temporary output file
         temp_fd, temp_path = tempfile.mkstemp(suffix=".mp4", dir=video_path.parent)
-        import os
         os.close(temp_fd)
         temp_path = Path(temp_path)
 
         try:
             # 180° rotation: flip horizontally + vertically (more efficient than double transpose)
             cmd = [
-                "ffmpeg", "-y",
+                ffmpeg_bin, "-y",
                 "-i", str(video_path),
                 "-vf", "hflip,vflip",  # 180° rotation
                 "-c:v", "libx264",
@@ -3014,7 +3156,7 @@ class MainWindow(QMainWindow):
         # For LeRobot export, check scenario name
         scenario_name = ""
         if format_type == "lerobot":
-            scenario_name = self.scenario_input.text().strip()
+            scenario_name = self.scenario_input.currentData() or ""
             if not scenario_name:
                 QMessageBox.warning(
                     self,
@@ -3183,6 +3325,10 @@ class MainWindow(QMainWindow):
             f"Upload HDD échoué — fichiers conservés dans {session_dir}"
         )
 
+        # Incrémenter le compteur de sessions de l'annotateur dans MongoDB
+        if self.mongo_client and annotator:
+            self.mongo_client.increment_session_count(annotator)
+
         # 3. Nettoyage côté application et passage immédiat au job suivant.
         #    Le subprocess d'upload supprime session_dir après transfert réussi.
         self._cleanup_session_state(keep_session_dir=True)  # subprocess gère la suppression
@@ -3212,6 +3358,12 @@ class MainWindow(QMainWindow):
         self._bg_upload_procs = still_running
         if not still_running:
             self._bg_upload_timer.stop()
+
+    def _ensure_ffmpeg_available(self) -> None:
+        """Vérifie la disponibilité de FFmpeg au démarrage et télécharge si nécessaire."""
+        if not is_ffmpeg_available():
+            logger.info("FFmpeg absent — déclenchement du téléchargement automatique")
+            download_ffmpeg_with_dialog(self)
 
     def _cleanup_stale_temp_dirs(self) -> None:
         """Au démarrage, supprime les dossiers temporaires de sessions abandonnées.
@@ -3836,13 +3988,56 @@ class MainWindow(QMainWindow):
 
     # --- Validate / Reject ---
 
+    def _write_verifier_info(self, decision: str) -> None:
+        """Ajoute les infos du vérificateur dans metadata.json de la session."""
+        if self.session is None:
+            return
+        import json
+        from datetime import datetime
+        meta_path = Path(self.session.session_dir) / "metadata.json"
+        try:
+            raw = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+        except Exception as exc:
+            logger.error("Impossible de lire metadata.json : %s", exc)
+            raw = {}
+        raw["verified_at"] = datetime.now().isoformat()
+        raw["verification_decision"] = decision
+        raw["verificateur"] = self.config.annotator
+        if self.mongo_client and self.mongo_client.current_user:
+            user = self.mongo_client.current_user
+            raw["verificateur_username"] = user.get("username", "")
+            raw["verificateur_poste"] = user.get("numero_poste", "")
+            raw["verificateur_role"] = user.get("role", "annotator")
+        try:
+            meta_path.write_text(json.dumps(raw, indent=4, ensure_ascii=False), encoding="utf-8")
+            logger.info("metadata.json mis à jour avec les infos vérificateur : %s", meta_path)
+        except Exception as exc:
+            logger.error("Impossible d'écrire metadata.json : %s", exc)
+
     def _on_verification_validate(self) -> None:
-        # Determine the scenario name from session metadata
+        # Scenario courant depuis les métadonnées de session
         scenario_name = ""
         if self.session is not None:
             scenario_name = self.session.metadata.scenario_name or ""
 
-        action = ScenarioActionDialog.ask(scenario_name or "inconnu", self)
+        # Charger la liste des scénarios depuis MongoDB
+        scenarios: list[str] = []
+        if self.mongo_client:
+            try:
+                raw = self.mongo_client.list_scenarios()
+                actifs = [s for s in raw if s.get("actif", True)] or raw
+                scenarios = sorted(
+                    [s.get("nom") or "" for s in actifs if s.get("nom")],
+                    key=str.lower,
+                )
+            except Exception as exc:
+                logger.warning("Impossible de charger les scénarios: %s", exc)
+
+        action, scenario_name = ScenarioActionDialog.ask_with_scenarios(
+            scenario_name or "inconnu",
+            scenarios,
+            parent=self,
+        )
         if action is None:
             # User cancelled — re-enable buttons so they can decide again
             self.verification_widget.set_buttons_enabled(True)
@@ -3851,6 +4046,8 @@ class MainWindow(QMainWindow):
         self.verification_widget.set_buttons_enabled(False)
         logger.info("Verification: session validated — action=%s scenario=%s", action, scenario_name)
         self._hdd_session_decided = True
+
+        self._write_verifier_info("validated")
 
         silver_base = self.config.hdd.silver_base
         if scenario_name:
@@ -3865,6 +4062,7 @@ class MainWindow(QMainWindow):
         self.verification_widget.set_buttons_enabled(False)
         logger.info("Verification: session rejected")
         self._hdd_session_decided = True
+        self._write_verifier_info("rejected")
         self._upload_hdd_session(self.config.hdd.retry_base)
         self._advance_to_next_hdd_session("✕ Session rejetée")
 
