@@ -18,7 +18,7 @@ arrays.  If a camera has no jsonl the master index is used directly.
 Thread model
 ============
 _VideoDecodeThread owns one cv2.VideoCapture.  It accepts seek commands via
-a thread-safe queue, decodes the frame, rotates it 180°, and emits
+a thread-safe queue, decodes the frame, and emits
 frame_ready(position, frame_idx, ndarray) back to the main thread via a
 Qt queued connection.  Only the most recent pending seek is kept — stale
 seeks are dropped automatically.
@@ -174,7 +174,6 @@ class _VideoDecodeThread(QThread):
 
                 if ok and frame is not None:
                     self._current_idx = target
-                    frame = cv2.rotate(frame, cv2.ROTATE_180)
                     self.frame_ready.emit(self._position, target, frame)
         finally:
             cap.release()
@@ -1744,14 +1743,23 @@ class VerificationWidget(QWidget):
         for cam, btn in self._param_panel._cam_rotate_buttons.items():
             btn.setEnabled(cam in self._decoders)
 
-        # Auto-detect axis mapping from CSV data and apply to param panel
+        # Auto-detect axis mapping from CSV data and apply to param panel.
+        # Always call apply_settings explicitly after build() so that sphere
+        # sizes, axis visibility and trajectory remapping are applied even when
+        # the combo value hasn't changed between two load_session calls (in that
+        # case currentIndexChanged is not emitted and _on_params_changed is
+        # never triggered).
         try:
             detected = session.detect_axis_remap()
             self._param_panel._cmb_remap.setCurrentText(detected)
-            # _cmb_remap.currentIndexChanged triggers _emit → _on_params_changed
-            # so all viewers get the correct mapping immediately
         except Exception:
             pass
+        cfg = self._param_panel.config()
+        for col in self._columns.values():
+            if col.viewer_3d is not None:
+                col.viewer_3d.apply_settings(cfg)
+        if self._viewer_unified is not None:
+            self._viewer_unified.apply_settings(cfg)
 
         # Gripper timeline
         gripper_data = {}
@@ -1765,7 +1773,18 @@ class VerificationWidget(QWidget):
         self._gripper_widget.set_range(self._start_ns, self._end_ns)
         self._gripper_widget.set_gripper_ref_ns(self._gripper_ref_ns)
         self._gripper_widget.set_data(gripper_data)
-        self._gripper_widget.setVisible(bool(gripper_data))
+        has_gripper = bool(gripper_data)
+        self._gripper_widget.setVisible(has_gripper)
+        # Restore splitter height for the gripper panel: QSplitter does not
+        # automatically give back space to a widget that becomes visible again
+        # after having been collapsed to 0.  We fix it here so that the gripper
+        # timeline is always usable after load_session.
+        if has_gripper:
+            sizes = self._vert_splitter.sizes()
+            if len(sizes) >= 3 and sizes[2] == 0:
+                gripper_h = max(120, self._gripper_widget.minimumSizeHint().height())
+                total = sum(sizes)
+                self._vert_splitter.setSizes([total - gripper_h, sizes[1], gripper_h])
 
         # Seek to frame 0 — also updates label, timeline cursor, trackers
         self._seek_master(0)

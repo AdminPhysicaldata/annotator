@@ -150,6 +150,9 @@ class SpoolClient:
         logger.info("HDD: %d dossier(s), recherche de la dernière session complète…", len(dirs))
 
         for name in dirs:
+            # Ignorer les dossiers en cours de téléchargement par un autre vérificateur
+            if name.endswith(".__wip"):
+                continue
             path = f"{self.inbox_base.rstrip('/')}/{name}"
             try:
                 children = {e.filename for e in self._sftp.listdir_attr(path)}
@@ -161,6 +164,28 @@ class SpoolClient:
 
         logger.warning("HDD: aucune session complète trouvée dans %s", self.inbox_base)
         return None
+
+    def claim_session(self, session_id: str) -> Optional[str]:
+        """Tente de s'approprier atomiquement une session via rename SFTP.
+
+        Renomme ``session_id`` → ``session_id.__wip`` sur le NAS.
+        Comme sftp.rename() est atomique au niveau FS, un seul vérificateur
+        peut réussir cet appel même si plusieurs tentent simultanément.
+
+        Returns:
+            Le nom du dossier renommé (``session_id.__wip``) si le claim
+            a réussi, None si la session a déjà été prise par quelqu'un d'autre.
+        """
+        self._ensure_connected()
+        original = f"{self.inbox_base.rstrip('/')}/{session_id}"
+        claimed = f"{self.inbox_base.rstrip('/')}/{session_id}.__wip"
+        try:
+            self._sftp.rename(original, claimed)
+            logger.info("HDD: session '%s' claimed → '%s'", session_id, session_id + ".__wip")
+            return session_id + ".__wip"
+        except Exception as exc:
+            logger.warning("HDD: claim échoué pour '%s' (déjà prise ?) : %s", session_id, exc)
+            return None
 
     def list_dir(self, path: str) -> list:
         """Liste le contenu d'un dossier.
@@ -207,20 +232,25 @@ class SpoolClient:
         session_id: str,
         progress_cb: Optional[Callable[[str, int, int], None]] = None,
         cancelled_flag: Optional[threading.Event] = None,
+        remote_folder: Optional[str] = None,
     ) -> "LocalJobFiles":
         """Télécharge un scénario complet depuis le SPOOL vers local_dir.
 
         Args:
-            session_id: Nom du dossier dans inbox_base.
+            session_id: Nom logique de la session (utilisé pour le dossier local).
             progress_cb: Callable(label, bytes_done, bytes_total) optionnel.
             cancelled_flag: threading.Event — si set(), annule le téléchargement.
+            remote_folder: Nom du dossier distant à utiliser (peut différer de
+                session_id si le dossier a été renommé pour le claim). Vaut
+                session_id si None.
 
         Returns:
             LocalJobFiles pointant vers les fichiers locaux téléchargés.
         """
         self._ensure_connected()
 
-        remote_root = f"{self.inbox_base}/{session_id}"
+        remote_name = remote_folder if remote_folder is not None else session_id
+        remote_root = f"{self.inbox_base}/{remote_name}"
         local_root = self.local_dir / session_id
 
         # Supprimer le cache local existant pour forcer un téléchargement propre
@@ -579,28 +609,59 @@ class HddVerificationWorker(QThread):
 
         try:
             client.connect()
-            session_id = client.find_latest_complete_session()
-            if session_id is None:
+
+            # Boucle de claim : on cherche une session, on tente de la réserver
+            # atomiquement via rename. Si un autre vérificateur l'a prise en même
+            # temps, on essaie la suivante.
+            session_id = None
+            claimed_folder = None
+            for _attempt in range(10):   # max 10 candidats avant d'abandonner
+                candidate = client.find_latest_complete_session()
+                if candidate is None:
+                    break
+                claimed_folder = client.claim_session(candidate)
+                if claimed_folder is not None:
+                    session_id = candidate
+                    break
+                # Quelqu'un d'autre a pris ce dossier entre le find et le claim :
+                # laisser un court délai puis réessayer (le dossier est maintenant
+                # invisible car il se termine par .__wip).
+                import time
+                time.sleep(0.3)
+
+            if session_id is None or claimed_folder is None:
                 client.disconnect()
                 self.no_session_available.emit()
                 return
 
-            logger.info("HddVerificationWorker: downloading session '%s'", session_id)
+            logger.info(
+                "HddVerificationWorker: downloading session '%s' (claimed as '%s')",
+                session_id, claimed_folder,
+            )
 
             local_files = client.download_scenario(
                 session_id,
                 progress_cb=_progress,
                 cancelled_flag=self._cancel,
+                remote_folder=claimed_folder,
             )
 
             if self._cancel.is_set():
+                # Annulé : remettre le dossier dans l'inbox sous son nom original
+                claimed_path = f"{self._inbox_base.rstrip('/')}/{claimed_folder}"
+                original_path = f"{self._inbox_base.rstrip('/')}/{session_id}"
+                try:
+                    client._sftp.rename(claimed_path, original_path)
+                    logger.info("HddVerificationWorker: claim annulé, session restituée : %s", session_id)
+                except Exception:
+                    pass
                 client.disconnect()
                 return
 
-            # Supprimer le dossier sur le HDD (retrait de l'inbox)
-            remote_path = f"{self._inbox_base.rstrip('/')}/{session_id}"
-            logger.info("HddVerificationWorker: removing remote session '%s'", remote_path)
-            client._remove_remote_dir(remote_path)
+            # Supprimer le dossier renommé sur le HDD (retrait de l'inbox)
+            claimed_remote_path = f"{self._inbox_base.rstrip('/')}/{claimed_folder}"
+            logger.info("HddVerificationWorker: removing remote session '%s'", claimed_remote_path)
+            client._remove_remote_dir(claimed_remote_path)
 
             client.disconnect()
             self.download_finished.emit(session_id, local_files)

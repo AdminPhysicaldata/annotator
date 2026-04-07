@@ -2092,6 +2092,8 @@ class MainWindow(QMainWindow):
                     new_session.release()
                 except Exception:
                     pass
+            # Re-enable verification buttons so the user can retry or reject
+            self.verification_widget.set_buttons_enabled(True)
             QMessageBox.critical(
                 self, "Erreur de chargement",
                 f"Impossible de charger la session :\n{e}",
@@ -2371,8 +2373,9 @@ class MainWindow(QMainWindow):
                 "-i", str(video_path),
                 "-vf", "hflip,vflip",  # 180° rotation
                 "-c:v", "libx264",
-                "-preset", "fast",
-                "-crf", "18",
+                "-preset", "ultrafast",
+                "-crf", "23",
+                "-threads", "0",
                 "-c:a", "copy",  # Copy audio if any
                 str(temp_path),
             ]
@@ -3847,6 +3850,16 @@ class MainWindow(QMainWindow):
 
     def _start_hdd_verification_download(self) -> None:
         """Lance le téléchargement de la première session (aucune session active)."""
+        # Stop any previous main worker to avoid stale download_finished signals
+        if self._hdd_verification_worker is not None and self._hdd_verification_worker.isRunning():
+            try:
+                self._hdd_verification_worker.download_finished.disconnect()
+                self._hdd_verification_worker.no_session_available.disconnect()
+                self._hdd_verification_worker.error_occurred.disconnect()
+            except Exception:
+                pass
+            self._hdd_verification_worker.cancel()
+            self._hdd_verification_worker.wait(3000)
         hdd = self.config.hdd
         logger.info("HDD verification: connecting to %s inbox=%s", hdd.host, self._hdd_inbox_base())
         self.verification_widget.set_info("Connexion au serveur HDD…")
@@ -3972,9 +3985,13 @@ class MainWindow(QMainWindow):
             delete_after=False,
         )
         self.statusbar.showMessage(f"Upload HDD en cours → {dest_base}/{session_id}…")
-        self._hdd_upload_worker.upload_finished.connect(
-            lambda dest: self.statusbar.showMessage(f"✓ Session envoyée → {dest}")
-        )
+        _local_dir_ref = Path(session_dir)
+        def _on_upload_ok(dest: str) -> None:
+            import shutil
+            self.statusbar.showMessage(f"✓ Session envoyée → {dest}")
+            shutil.rmtree(str(_local_dir_ref), ignore_errors=True)
+            logger.info("Cache local supprimé après upload réussi : %s", _local_dir_ref)
+        self._hdd_upload_worker.upload_finished.connect(_on_upload_ok)
         self._hdd_upload_worker.error_occurred.connect(
             lambda err: (
                 self.statusbar.showMessage("✗ Échec de l'upload HDD"),
@@ -4209,11 +4226,20 @@ class MainWindow(QMainWindow):
                     key_path=None,
                     delete_after=False,  # ne pas supprimer le cache local ici
                 )
-                # Attendre la fin de l'upload (bloquant)
+                # Attendre la fin de l'upload en drainant stdout pour éviter le deadlock pipe
+                import threading as _threading
+                _stdout_chunks: list = []
+                def _drain():
+                    if proc.stdout:
+                        for line in proc.stdout:
+                            _stdout_chunks.append(line)
+                _drain_thread = _threading.Thread(target=_drain, daemon=True)
+                _drain_thread.start()
                 while proc.poll() is None:
                     QApplication.processEvents()
+                _drain_thread.join(timeout=2)
                 if proc.returncode != 0:
-                    out = proc.stdout.read() if proc.stdout else ""
+                    out = "".join(_stdout_chunks)
                     errors.append(f"{session_id}: exit {proc.returncode}\n{out}")
                     logger.error("Return upload failed for %s (exit %d)", session_id, proc.returncode)
                 else:
