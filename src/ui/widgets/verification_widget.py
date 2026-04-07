@@ -583,59 +583,77 @@ class GripperTimelineWidget(QWidget):
                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                        side_label)
 
-            # Waveform
+            # Waveform — rendu robuste avec agrégation par colonne de pixels
             if timestamps is not None and angles is not None and len(timestamps) > 1:
-                valid = np.isfinite(angles)
+                ts_arr  = np.asarray(timestamps, dtype=np.float64)
+                ang_arr = np.asarray(angles,     dtype=np.float64)
+                valid   = np.isfinite(ang_arr)
                 if valid.any():
-                    a_min = float(np.nanmin(angles))
-                    a_max = float(np.nanmax(angles))
+                    ts_v  = ts_arr[valid]
+                    ang_v = ang_arr[valid]
+
+                    a_min   = float(ang_v.min())
+                    a_max   = float(ang_v.max())
                     a_range = a_max - a_min if a_max > a_min else 1.0
 
                     inner_h   = _GRIPPER_TRACK_H - 6
                     inner_top = gripper_y + 3
+                    bottom_y  = inner_top + inner_h
 
-                    # Filled path (fill entre la courbe et le bas)
-                    fill_path = QPainterPath()
-                    line_path = QPainterPath()
-                    first = True
-                    last_px = 0
-                    for ts_val, angle_val in zip(timestamps, angles):
-                        if not np.isfinite(angle_val):
-                            first = True
-                            continue
-                        px_x = ts_to_x(float(ts_val))
-                        norm  = (float(angle_val) - a_min) / a_range
-                        px_y  = inner_top + int((1.0 - norm) * inner_h)
-                        if first:
-                            fill_path.moveTo(px_x, inner_top + inner_h)
-                            fill_path.lineTo(px_x, px_y)
-                            line_path.moveTo(px_x, px_y)
-                            first = False
-                        else:
-                            fill_path.lineTo(px_x, px_y)
-                            line_path.lineTo(px_x, px_y)
-                        last_px = px_x
-                    if not first:
-                        fill_path.lineTo(last_px, inner_top + inner_h)
-                        fill_path.closeSubpath()
+                    # Conversion vectorisée timestamp → pixel X
+                    dur_  = self._end_ns - self._start_ns
+                    px_xs = margin + (self._gripper_ref_ns + ts_v * 1e9 - self._start_ns) / dur_ * (w - 2 * margin)
+                    py_ys = inner_top + (1.0 - (ang_v - a_min) / a_range) * inner_h
 
-                    fill_color = QColor(color)
-                    fill_color.setAlpha(40)
-                    p.setBrush(fill_color)
-                    p.setPen(Qt.PenStyle.NoPen)
-                    p.drawPath(fill_path)
+                    # Filtre sur la plage visible (avec une marge d'1 px)
+                    vis = (px_xs >= -1.0) & (px_xs <= w + 1.0)
+                    if vis.any():
+                        px_v = px_xs[vis]
+                        py_v = py_ys[vis]
 
-                    line_color = QColor(color)
-                    line_color.setAlpha(220)
-                    p.setPen(QPen(line_color, 1.5))
-                    p.setBrush(Qt.BrushStyle.NoBrush)
-                    p.drawPath(line_path)
+                        # ---- Agrégation par colonne de pixels ----
+                        # Plusieurs mesures sur le même pixel X → valeur moyenne
+                        # Élimine les artefacts en dents de scie à haute fréquence
+                        px_int   = np.round(px_v).astype(np.int32)
+                        order    = np.argsort(px_int, kind="stable")
+                        xs_s     = px_int[order]
+                        ys_s     = py_v[order].astype(np.float32)
+                        splits   = np.where(np.diff(xs_s) != 0)[0] + 1
+                        grp_ys   = np.split(ys_s, splits)
+                        uniq_xs  = xs_s[np.concatenate([[0], splits])]
+                        y_mids   = np.array([g.mean() for g in grp_ys], dtype=np.float32)
 
-                    # Valeur courante : point + label
+                        # Construction des chemins QPainter
+                        fill_path = QPainterPath()
+                        line_path = QPainterPath()
+                        n_pts = len(uniq_xs)
+                        if n_pts > 0:
+                            x0 = int(uniq_xs[0]);  y0 = float(y_mids[0])
+                            fill_path.moveTo(x0, bottom_y)
+                            fill_path.lineTo(x0, y0)
+                            line_path.moveTo(x0, y0)
+                            for i in range(1, n_pts):
+                                xi = int(uniq_xs[i]);  yi = float(y_mids[i])
+                                fill_path.lineTo(xi, yi)
+                                line_path.lineTo(xi, yi)
+                            fill_path.lineTo(int(uniq_xs[-1]), bottom_y)
+                            fill_path.closeSubpath()
+
+                            fill_color = QColor(color)
+                            fill_color.setAlpha(40)
+                            p.setBrush(fill_color)
+                            p.setPen(Qt.PenStyle.NoPen)
+                            p.drawPath(fill_path)
+
+                            line_color = QColor(color)
+                            line_color.setAlpha(220)
+                            p.setPen(QPen(line_color, 1.5))
+                            p.setBrush(Qt.BrushStyle.NoBrush)
+                            p.drawPath(line_path)
+
+                    # Valeur courante : point + label (interpolation sur données filtrées NaN)
                     t_s_cursor = (self._cursor_ns - self._gripper_ref_ns) / 1e9
-                    val = float(np.interp(t_s_cursor,
-                                         timestamps.astype(float),
-                                         angles.astype(float)))
+                    val = float(np.interp(t_s_cursor, ts_v, ang_v))
                     if np.isfinite(val):
                         norm_val = (val - a_min) / a_range
                         dot_x = ns_to_x(self._cursor_ns)

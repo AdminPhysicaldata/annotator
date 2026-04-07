@@ -497,8 +497,18 @@ class SessionDataLoader:
     def _prepare_gripper_arrays(self) -> None:
         for side, df in self.gripper_dfs.items():
             try:
-                self._gripper_timestamps[side] = df["t"].to_numpy(dtype=np.float64)
-                self._gripper_openings[side] = df["opening_mm"].to_numpy(dtype=np.float64)
+                # Tri chronologique + suppression des timestamps dupliqués
+                # (doublons ou désordre dans le CSV causent des artefacts en dents de scie)
+                df_clean = (
+                    df[["t", "opening_mm"]]
+                    .copy()
+                    .pipe(lambda d: d.assign(opening_mm=pd.to_numeric(d["opening_mm"], errors="coerce").fillna(0.0)))
+                    .sort_values("t")
+                    .drop_duplicates(subset="t", keep="last")
+                    .reset_index(drop=True)
+                )
+                self._gripper_timestamps[side] = df_clean["t"].to_numpy(dtype=np.float64)
+                self._gripper_openings[side] = df_clean["opening_mm"].to_numpy(dtype=np.float64)
             except Exception as exc:
                 logger.error("Failed to prepare gripper '%s' arrays: %s", side, exc)
 
