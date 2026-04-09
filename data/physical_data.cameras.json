@@ -1,0 +1,1056 @@
+[{
+  "_id": {
+    "$oid": "69920f5db6b1b6e1c8870935"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41010",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69920fceb8d21607229bd7d6"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41058",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-15T18:26:22.036Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69920fd8b8d21607229bd7d7"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41011",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-15T18:26:32.115Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996446da93cebe7574df3e7"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41014",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T22:59:57.686Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996448aa93cebe7574df3e8"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40993",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:00:26.257Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996449aa93cebe7574df3e9"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40981",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:00:42.084Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699644aea93cebe7574df3ea"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40965",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:01:02.016Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699644bda93cebe7574df3eb"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40983",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:01:17.399Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699644cca93cebe7574df3ec"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40980",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:01:32.962Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699644dca93cebe7574df3ed"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40995",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:01:48.281Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964507a93cebe7574df3ee"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40966",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:02:31.400Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964518a93cebe7574df3ef"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41009",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:02:48.328Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964527a93cebe7574df3f0"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40969",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:03:03.055Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996453ea93cebe7574df3f1"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40979",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:03:26.094Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996454ea93cebe7574df3f2"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40998",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:03:42.011Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964567a93cebe7574df3f3"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40962",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:04:07.923Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964668a93cebe7574df3f4"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40982",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:08:24.912Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996467da93cebe7574df3f5"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40976",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:08:45.050Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964692a93cebe7574df3f6"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40968",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:09:06.824Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699646a9a93cebe7574df3f7"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41012",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:09:29.077Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699646b5a93cebe7574df3f8"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40996",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:09:41.508Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699646c4a93cebe7574df3f9"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40964",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:09:56.142Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699646d2a93cebe7574df3fa"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40997",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:10:10.582Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699646e7a93cebe7574df3fb"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40999",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:10:31.846Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964703a93cebe7574df3fc"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40985",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:10:59.453Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964714a93cebe7574df3fd"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40977",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:11:16.050Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964727a93cebe7574df3fe"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40967",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:11:35.047Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964735a93cebe7574df3ff"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41008",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:11:49.503Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964742a93cebe7574df400"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40963",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:12:02.110Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996474ea93cebe7574df401"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40994",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:12:14.418Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996475ea93cebe7574df402"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40992",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:12:30.123Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996476ba93cebe7574df403"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41000",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-18T23:12:43.719Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964fce8d4e4d06b29986a4"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41031",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:48:30.654Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964fdb8d4e4d06b29986a5"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41024",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:48:43.349Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69964fec8d4e4d06b29986a6"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41056",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:49:00.925Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996500d8d4e4d06b29986a7"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41032",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:49:33.270Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699650288d4e4d06b29986a8"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41017",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:50:00.164Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69965091c2796da5a629b630"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41048",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:51:45.090Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699650adc2796da5a629b631"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41046",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:52:13.872Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699650bdc2796da5a629b632"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41043",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:52:29.047Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699650e1c2796da5a629b633"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41040",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:53:05.943Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699650f4c2796da5a629b634"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40961",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:53:24.936Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996510bc2796da5a629b635"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41013",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:53:47.125Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69965120c2796da5a629b636"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41029",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:54:08.207Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996512ec2796da5a629b637"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41015",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:54:22.667Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996513dc2796da5a629b638"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41025",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:54:37.246Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6996515dc2796da5a629b639"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41044",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:55:09.088Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69965169c2796da5a629b63a"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40978",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:55:21.512Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69965175c2796da5a629b63b"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41041",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:55:33.791Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69965184c2796da5a629b63c"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41026",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:55:48.102Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69965196c2796da5a629b63d"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41049",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:56:06.857Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699651b2c2796da5a629b63e"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41042",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:56:34.270Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699651c0c2796da5a629b63f"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41028",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:56:48.800Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699651cfc2796da5a629b640"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41016",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:57:03.274Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699651dbc2796da5a629b641"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41045",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:57:15.392Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699651e7c2796da5a629b642"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41047",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:57:27.467Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a393de8ac0d8c00bb9008"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41062",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:01:17.685Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a39e2ce7c889475e46efb"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41089",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:04:02.780Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3a24ce7c889475e46efc"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41065",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:05:08.874Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3a56ce7c889475e46efd"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41060",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:05:58.017Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3a92ce7c889475e46efe"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41091",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:06:58.103Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3ac6ce7c889475e46eff"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41093",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:07:50.450Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3af7ce7c889475e46f00"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41059",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:08:39.755Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3b20ce7c889475e46f01"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41088",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:09:20.267Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3b52ce7c889475e46f02"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41080",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:10:10.133Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3ba2ce7c889475e46f03"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41078",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:11:30.263Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3c02ce7c889475e46f04"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41077",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:13:06.943Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3c57ce7c889475e46f05"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41076",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:14:31.325Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3cacce7c889475e46f06"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41073",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:15:56.235Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3ce9ce7c889475e46f07"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41064",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:16:57.367Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3d1cce7c889475e46f08"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41061",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:17:48.162Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3d4ace7c889475e46f09"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41079",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:18:34.348Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3db0ce7c889475e46f0a"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41104",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:20:16.658Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3decce7c889475e46f0b"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41074",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:21:16.845Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3e31ce7c889475e46f0c"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41072",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:22:25.507Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3e49ce7c889475e46f0d"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41057",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:22:49.153Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3e79ce7c889475e46f0e"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41063",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:23:37.298Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3f02ce7c889475e46f0f"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41095",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:25:54.715Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3f10ce7c889475e46f10"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41097",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:26:08.334Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699a3f47ce7c889475e46f11"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41081",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-21T23:27:03.829Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699add0fce7c889475e46f12"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41030",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-22T10:40:15.650Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699adea2ce7c889475e46f13"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41001",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-22T10:46:58.655Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699adf44ce7c889475e46f14"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40984",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-22T10:49:40.647Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "699ae1815dd7f0fdcc7a19c3"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41027",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-22T10:59:13.291Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca5cce29f09dc5b9379a61"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41058",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca5cdd29f09dc5b9379a62"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41011",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca5cf829f09dc5b9379a63"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41010",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca5d1a29f09dc5b9379a64"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "40993",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca5d2829f09dc5b9379a65"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41015",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-18T23:00:42.084Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca5d3629f09dc5b9379a66"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41096",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-18T23:00:42.084Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca68cd29f09dc5b9379a67"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41012",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca6a8329f09dc5b9379a68"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41075",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-15T18:26:22.036Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca6bb729f09dc5b9379a69"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41090",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-15T18:26:22.036Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca6be729f09dc5b9379a6a"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41033",
+  "position": "left",
+  "registered_at": {
+    "$date": "2026-02-15T18:26:22.036Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca6c2229f09dc5b9379a6b"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41092",
+  "position": "head",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "69ca6c9029f09dc5b9379a6c"
+  },
+  "camera_name": "USB3.0 Camera",
+  "serial_number": "41094",
+  "position": "right",
+  "registered_at": {
+    "$date": "2026-02-15T18:24:29.425Z"
+  }
+}]
