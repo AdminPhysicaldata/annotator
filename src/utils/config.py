@@ -100,7 +100,7 @@ class HDDConfig:
     port: int = 22
     username: str = "exoria"
     password: str = "Admin123456"
-    inbox_base: str = "/mnt/inbox2"
+    inbox_base: str = "/mnt/inbox"
     bronze_base: str = "/mnt/storage/bronze"
     silver_base: str = "/mnt/storage/silver"
     gold_base: str = "/mnt/storage/gold"
