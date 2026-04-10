@@ -161,23 +161,31 @@ class MongoDBClient:
     def list_scenarios(self) -> List[Dict[str, Any]]:
         """Return all scenario documents (nom + description + actif).
 
-        Falls back to the bundled JSON file only if the DB query fails or
-        returns no documents at all.
+        Fusionne MongoDB et le fichier JSON local : MongoDB a priorité pour les
+        scénarios déjà présents, mais tout scénario absent de MongoDB est ajouté
+        depuis le fichier (ex: scénario récemment créé non encore synchronisé).
+        Falls back to the bundled JSON file only if the DB query fails.
         """
+        file_docs = self._load_scenarios_from_file()
         try:
             docs = list(self._db["scenarios"].find(
                 {},
                 {"nom": 1, "description": 1, "actif": 1, "labels": 1}
             ))
-            if docs:
-                logger.info("list_scenarios: %d scénario(s) depuis MongoDB", len(docs))
-                return docs
-            logger.warning("list_scenarios: collection vide dans MongoDB — fallback fichier")
+            logger.info("list_scenarios: %d scénario(s) depuis MongoDB", len(docs))
+            # Ajouter les scénarios du fichier JSON absents de MongoDB
+            existing_noms = {d.get("nom") for d in docs}
+            for fdoc in file_docs:
+                nom = fdoc.get("nom")
+                if nom and nom not in existing_noms:
+                    logger.info("list_scenarios: '%s' absent de MongoDB — ajouté depuis le fichier local", nom)
+                    docs.append({k: fdoc[k] for k in ("nom", "description", "actif", "labels") if k in fdoc})
+            return docs
         except Exception as exc:
             logger.error("MongoDB list_scenarios failed: %s", exc)
 
-        # Fallback: load from bundled data file
-        return self._load_scenarios_from_file()
+        # Fallback complet : fichier local uniquement
+        return file_docs
 
     def _load_scenarios_from_file(self) -> List[Dict[str, Any]]:
         """Load scenarios from the bundled physical_data.scenarios.json file."""
