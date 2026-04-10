@@ -143,10 +143,14 @@ class SpoolClient:
             logger.warning("inbox_base not found: %s", self.inbox_base)
             return None
 
-        dirs = sorted(
-            [e.filename for e in entries if stat_mod.S_ISDIR(e.st_mode)],
-            reverse=True,   # plus récente en premier
-        )
+        dirs = [
+            e.filename
+            for e in sorted(
+                [e for e in entries if stat_mod.S_ISDIR(e.st_mode)],
+                key=lambda e: e.st_mtime or 0,
+                reverse=True,   # plus récente en premier (par date de modification)
+            )
+        ]
         logger.info("HDD: %d dossier(s), recherche de la dernière session complète…", len(dirs))
 
         for name in dirs:
