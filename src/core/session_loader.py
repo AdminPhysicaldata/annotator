@@ -355,8 +355,8 @@ class SessionDataLoader:
                 logger.warning("%s has fewer than 2 rows — skipping gripper '%s'", csv_path.name, side)
                 continue
 
-            if "time_seconds" not in df.columns and "timestamp" not in df.columns:
-                logger.warning("%s has neither 'time_seconds' nor 'timestamp' — skipping gripper '%s'", csv_path.name, side)
+            if "t_ns" not in df.columns and "time_seconds" not in df.columns and "timestamp" not in df.columns:
+                logger.warning("%s has neither 't_ns', 'time_seconds' nor 'timestamp' — skipping gripper '%s'", csv_path.name, side)
                 continue
 
             # Detect "packed string" format: all data columns are empty but angle_deg
@@ -380,8 +380,20 @@ class SessionDataLoader:
                     if col in parsed_df.columns:
                         df[col] = parsed_df[col]
 
-            # Resolve timestamp
-            if "time_seconds" in df.columns:
+            # Resolve timestamp — priority: t_ns > time_seconds > timestamp
+            if "t_ns" in df.columns:
+                try:
+                    ref_ns = self._ref_time.value  # ns since Unix epoch
+                    df["t"] = (pd.to_numeric(df["t_ns"], errors="coerce") - ref_ns) / 1e9
+                    n_before = len(df)
+                    df = df.dropna(subset=["t"]).copy()
+                    if n_before - len(df) > 0:
+                        logger.warning("%s: dropped %d rows with invalid t_ns", csv_path.name, n_before - len(df))
+                    logger.info("Gripper '%s': using t_ns column for timestamps", side)
+                except Exception as exc:
+                    logger.error("Gripper '%s' t_ns conversion failed: %s", side, exc)
+                    continue
+            elif "time_seconds" in df.columns:
                 try:
                     df["t"] = pd.to_numeric(df["time_seconds"], errors="coerce")
                     n_before = len(df)
