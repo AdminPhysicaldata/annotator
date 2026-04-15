@@ -169,6 +169,60 @@ class SpoolClient:
         logger.warning("HDD: aucune session complète trouvée dans %s", self.inbox_base)
         return None
 
+    _WIP_SUFFIX = ".__wip"
+    _STALE_WIP_SECONDS = 600   # 10 min — tout téléchargement actif dure moins que ça
+
+    def restore_stale_wip_sessions(self) -> int:
+        """Restaure les sessions bloquées à l'état ``.__wip`` suite à un crash.
+
+        Un dossier ``session.__wip`` qui n'a pas été modifié depuis au moins
+        ``_STALE_WIP_SECONDS`` secondes est considéré abandonné : il est
+        renommé en son nom original pour être de nouveau disponible dans
+        l'inbox.
+
+        Returns:
+            Nombre de sessions restaurées.
+        """
+        import time
+
+        self._ensure_connected()
+        try:
+            entries = self._sftp.listdir_attr(self.inbox_base)
+        except Exception as exc:
+            logger.warning("restore_stale_wip: impossible de lister %s : %s", self.inbox_base, exc)
+            return 0
+
+        now = time.time()
+        restored = 0
+        for e in entries:
+            if not e.filename.endswith(self._WIP_SUFFIX):
+                continue
+            if not stat_mod.S_ISDIR(e.st_mode):
+                continue
+            age = now - (e.st_mtime or 0)
+            if age < self._STALE_WIP_SECONDS:
+                continue   # téléchargement encore actif (ou très récent)
+
+            original_name = e.filename[: -len(self._WIP_SUFFIX)]
+            wip_path      = f"{self.inbox_base.rstrip('/')}/{e.filename}"
+            original_path = f"{self.inbox_base.rstrip('/')}/{original_name}"
+            try:
+                self._sftp.rename(wip_path, original_path)
+                logger.info(
+                    "restore_stale_wip: '%s' restauré (ancienneté %.0f s)",
+                    original_name, age,
+                )
+                restored += 1
+            except Exception as exc:
+                logger.warning(
+                    "restore_stale_wip: impossible de restaurer '%s' : %s",
+                    e.filename, exc,
+                )
+
+        if restored:
+            logger.info("restore_stale_wip: %d session(s) restaurée(s) dans %s", restored, self.inbox_base)
+        return restored
+
     def claim_session(self, session_id: str) -> Optional[str]:
         """Tente de s'approprier atomiquement une session via rename SFTP.
 
@@ -565,16 +619,25 @@ class HddVerificationWorker(QThread):
 
     Flux:
       1. Se connecte au serveur HDD.
-      2. Liste les dossiers dans inbox_base (tri alphabétique → la dernière = la plus récente).
-      3. Télécharge ce dossier localement.
-      4. Supprime le dossier sur le serveur HDD (retrait de l'inbox).
-      5. Émet download_finished(session_id, LocalJobFiles).
+      2. Restaure les sessions .__wip abandonnées (crash précédent).
+      3. Cherche et claim la prochaine session complète.
+      4. Si inbox vide : attend ``_RETRY_INTERVAL_S`` puis recommence (boucle infinie).
+      5. Télécharge localement, supprime du HDD, émet download_finished.
+
+    Le worker ne s'arrête jamais de lui-même tant qu'il n'a pas trouvé de session
+    ou reçu un cancel() — plus de "no_session_available" qui bloque l'UI.
     """
 
     download_finished = pyqtSignal(str, object)    # (session_id, LocalJobFiles)
     file_progress = pyqtSignal(str, int, int)       # (label, done, total)
-    no_session_available = pyqtSignal()             # inbox vide
+    no_session_available = pyqtSignal()             # inbox vide — émis UNIQUEMENT pour le prefetch
+    waiting_for_session = pyqtSignal(int)           # inbox vide — prochain essai dans N secondes
     error_occurred = pyqtSignal(str)
+
+    # Intervalle de polling quand l'inbox est vide (secondes)
+    _RETRY_INTERVAL_S = 30
+    # Pour le prefetch on ne poll pas — on abandonne au premier essai infructueux
+    _PREFETCH_RETRY = False
 
     def __init__(
         self,
@@ -584,6 +647,7 @@ class HddVerificationWorker(QThread):
         password: str,
         inbox_base: str,
         local_dir: Optional[Path] = None,
+        prefetch: bool = False,
         parent=None,
     ):
         super().__init__(parent)
@@ -593,13 +657,18 @@ class HddVerificationWorker(QThread):
         self._password = password
         self._inbox_base = inbox_base
         self._local_dir = local_dir
+        self._prefetch = prefetch          # mode prefetch : pas de retry infini
         self._cancel = threading.Event()
 
     def cancel(self) -> None:
         self._cancel.set()
 
-    def run(self) -> None:
-        client = SpoolClient(
+    # ------------------------------------------------------------------
+    # Helpers internes
+    # ------------------------------------------------------------------
+
+    def _make_client(self) -> "SpoolClient":
+        return SpoolClient(
             host=self._host,
             port=self._port,
             username=self._username,
@@ -608,76 +677,126 @@ class HddVerificationWorker(QThread):
             local_dir=self._local_dir,
         )
 
+    def _claim_next_session(self, client: "SpoolClient") -> "Optional[tuple[str,str]]":
+        """Tente de trouver et claim une session.  Retourne (session_id, claimed_folder) ou None."""
+        import time
+
+        # Restaurer d'abord les .__wip abandonnés
+        client.restore_stale_wip_sessions()
+
+        for _attempt in range(10):
+            if self._cancel.is_set():
+                return None
+            candidate = client.find_latest_complete_session()
+            if candidate is None:
+                # Dernier recours : un concurrent vient peut-être de crasher
+                if client.restore_stale_wip_sessions():
+                    candidate = client.find_latest_complete_session()
+                if candidate is None:
+                    return None
+            claimed_folder = client.claim_session(candidate)
+            if claimed_folder is not None:
+                return candidate, claimed_folder
+            # Concurrent race — courte pause puis retry
+            time.sleep(0.3)
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Thread principal
+    # ------------------------------------------------------------------
+
+    def run(self) -> None:
+        import time
+
         def _progress(label: str, done: int, total: int) -> None:
             self.file_progress.emit(label, done, total)
 
-        try:
-            client.connect()
+        while not self._cancel.is_set():
+            client = self._make_client()
+            try:
+                client.connect()
+                result = self._claim_next_session(client)
 
-            # Boucle de claim : on cherche une session, on tente de la réserver
-            # atomiquement via rename. Si un autre vérificateur l'a prise en même
-            # temps, on essaie la suivante.
-            session_id = None
-            claimed_folder = None
-            for _attempt in range(10):   # max 10 candidats avant d'abandonner
-                candidate = client.find_latest_complete_session()
-                if candidate is None:
-                    break
-                claimed_folder = client.claim_session(candidate)
-                if claimed_folder is not None:
-                    session_id = candidate
-                    break
-                # Quelqu'un d'autre a pris ce dossier entre le find et le claim :
-                # laisser un court délai puis réessayer (le dossier est maintenant
-                # invisible car il se termine par .__wip).
-                import time
-                time.sleep(0.3)
+                if result is None:
+                    client.disconnect()
+                    if self._prefetch:
+                        # Le prefetch n'est pas bloquant — on abandonne proprement
+                        self.no_session_available.emit()
+                        return
+                    # Mode principal : on attend et on réessaie
+                    logger.info(
+                        "HddVerificationWorker: inbox vide — prochain essai dans %d s",
+                        self._RETRY_INTERVAL_S,
+                    )
+                    self.waiting_for_session.emit(self._RETRY_INTERVAL_S)
+                    # Attente interruptible par cancel()
+                    for _ in range(self._RETRY_INTERVAL_S * 2):
+                        if self._cancel.is_set():
+                            return
+                        time.sleep(0.5)
+                    continue   # reconnexion + nouvelle tentative
 
-            if session_id is None or claimed_folder is None:
+                session_id, claimed_folder = result
+                logger.info(
+                    "HddVerificationWorker: downloading '%s' (claimed as '%s')",
+                    session_id, claimed_folder,
+                )
+
+                local_files = client.download_scenario(
+                    session_id,
+                    progress_cb=_progress,
+                    cancelled_flag=self._cancel,
+                    remote_folder=claimed_folder,
+                )
+
+                if self._cancel.is_set():
+                    # Annulé : remettre le dossier dans l'inbox sous son nom original
+                    claimed_path = f"{self._inbox_base.rstrip('/')}/{claimed_folder}"
+                    original_path = f"{self._inbox_base.rstrip('/')}/{session_id}"
+                    try:
+                        client._sftp.rename(claimed_path, original_path)
+                        logger.info(
+                            "HddVerificationWorker: claim annulé, session restituée : %s",
+                            session_id,
+                        )
+                    except Exception:
+                        pass
+                    client.disconnect()
+                    return
+
+                # Supprimer le dossier renommé sur le HDD (retrait de l'inbox)
+                claimed_remote_path = f"{self._inbox_base.rstrip('/')}/{claimed_folder}"
+                logger.info(
+                    "HddVerificationWorker: removing remote session '%s'",
+                    claimed_remote_path,
+                )
+                client._remove_remote_dir(claimed_remote_path)
                 client.disconnect()
-                self.no_session_available.emit()
-                return
+                self.download_finished.emit(session_id, local_files)
+                return   # succès — le worker s'arrête
 
-            logger.info(
-                "HddVerificationWorker: downloading session '%s' (claimed as '%s')",
-                session_id, claimed_folder,
-            )
-
-            local_files = client.download_scenario(
-                session_id,
-                progress_cb=_progress,
-                cancelled_flag=self._cancel,
-                remote_folder=claimed_folder,
-            )
-
-            if self._cancel.is_set():
-                # Annulé : remettre le dossier dans l'inbox sous son nom original
-                claimed_path = f"{self._inbox_base.rstrip('/')}/{claimed_folder}"
-                original_path = f"{self._inbox_base.rstrip('/')}/{session_id}"
+            except Exception as exc:
                 try:
-                    client._sftp.rename(claimed_path, original_path)
-                    logger.info("HddVerificationWorker: claim annulé, session restituée : %s", session_id)
+                    client.disconnect()
                 except Exception:
                     pass
-                client.disconnect()
-                return
-
-            # Supprimer le dossier renommé sur le HDD (retrait de l'inbox)
-            claimed_remote_path = f"{self._inbox_base.rstrip('/')}/{claimed_folder}"
-            logger.info("HddVerificationWorker: removing remote session '%s'", claimed_remote_path)
-            client._remove_remote_dir(claimed_remote_path)
-
-            client.disconnect()
-            self.download_finished.emit(session_id, local_files)
-
-        except Exception as exc:
-            try:
-                client.disconnect()
-            except Exception:
-                pass
-            if not self._cancel.is_set():
+                if self._cancel.is_set():
+                    return
                 logger.error("HddVerificationWorker error: %s", exc, exc_info=True)
-                self.error_occurred.emit(str(exc))
+                if self._prefetch:
+                    self.error_occurred.emit(str(exc))
+                    return
+                # Mode principal : erreur réseau → retry après délai
+                logger.warning(
+                    "HddVerificationWorker: erreur transitoire, retry dans %d s : %s",
+                    self._RETRY_INTERVAL_S, exc,
+                )
+                self.waiting_for_session.emit(self._RETRY_INTERVAL_S)
+                for _ in range(self._RETRY_INTERVAL_S * 2):
+                    if self._cancel.is_set():
+                        return
+                    time.sleep(0.5)
 
 
 # ---------------------------------------------------------------------------

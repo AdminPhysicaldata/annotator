@@ -3826,17 +3826,19 @@ class MainWindow(QMainWindow):
         """Crée un HddVerificationWorker connecté aux bons slots selon son rôle."""
         hdd = self.config.hdd
         inbox = self._hdd_inbox_base()
-        logger.info("HDD worker inbox_base: %s (scenario=%r)", inbox, self._selected_scenario)
+        is_prefetch = (slot != "main")
+        logger.info("HDD worker inbox_base: %s (scenario=%r, prefetch=%s)", inbox, self._selected_scenario, is_prefetch)
         worker = HddVerificationWorker(
             host=hdd.host, port=hdd.port,
             username=hdd.username, password=hdd.password,
             inbox_base=inbox,
             local_dir=self._hdd_local_dir(),
+            prefetch=is_prefetch,
         )
         if slot == "main":
             worker.download_finished.connect(self._on_hdd_download_finished)
             worker.file_progress.connect(self._on_hdd_file_progress)
-            worker.no_session_available.connect(self._on_hdd_no_session)
+            worker.waiting_for_session.connect(self._on_hdd_waiting_for_session)
             worker.error_occurred.connect(self._on_hdd_download_error)
         else:  # prefetch
             worker.download_finished.connect(self._on_hdd_prefetch_finished)
@@ -3846,12 +3848,16 @@ class MainWindow(QMainWindow):
         return worker
 
     def _start_hdd_verification_download(self) -> None:
-        """Lance le téléchargement de la première session (aucune session active)."""
-        # Stop any previous main worker to avoid stale download_finished signals
+        """Lance le téléchargement de la première session (aucune session active).
+
+        Le worker tourne en boucle jusqu'à trouver une session — pas besoin de
+        le relancer manuellement en cas d'inbox temporairement vide.
+        """
+        # Stop any previous main worker to avoid stale signals
         if self._hdd_verification_worker is not None and self._hdd_verification_worker.isRunning():
             try:
                 self._hdd_verification_worker.download_finished.disconnect()
-                self._hdd_verification_worker.no_session_available.disconnect()
+                self._hdd_verification_worker.waiting_for_session.disconnect()
                 self._hdd_verification_worker.error_occurred.disconnect()
             except Exception:
                 pass
@@ -3882,10 +3888,15 @@ class MainWindow(QMainWindow):
         else:
             self.statusbar.showMessage(f"Téléchargement HDD : {label}…")
 
-    def _on_hdd_no_session(self) -> None:
-        logger.info("HDD inbox is empty — no session to verify")
-        self.verification_widget.set_info("Aucune session disponible dans le HDD inbox.")
-        self.statusbar.showMessage("HDD inbox vide — aucune session à vérifier.")
+    def _on_hdd_waiting_for_session(self, retry_in: int) -> None:
+        """Le worker n'a pas trouvé de session — il réessaiera automatiquement."""
+        logger.info("HDD inbox vide — prochain essai dans %d s", retry_in)
+        self.verification_widget.set_info(
+            f"HDD inbox vide — prochain essai dans {retry_in} s…"
+        )
+        self.statusbar.showMessage(
+            f"HDD inbox vide — le worker réessaie automatiquement dans {retry_in} s."
+        )
 
     def _on_hdd_download_error(self, error: str) -> None:
         logger.error("HDD download error: %s", error)
@@ -4081,7 +4092,12 @@ class MainWindow(QMainWindow):
         self._advance_to_next_hdd_session("✕ Session rejetée")
 
     def _advance_to_next_hdd_session(self, status: str) -> None:
-        """Passe à la session suivante : immédiate si prefetch prêt, sinon attend."""
+        """Passe à la session suivante : immédiate si prefetch prêt, sinon attend.
+
+        Le worker principal tourne en boucle infinie — si le prefetch n'est pas
+        prêt, on repasse en écran d'attente et on relance le worker principal
+        (qui pollingera automatiquement l'inbox toutes les 30 s).
+        """
         if self._hdd_prefetched is not None:
             # Déjà téléchargée — chargement instantané
             self.verification_widget.set_info(f"{status} — chargement de la session suivante…")
@@ -4095,7 +4111,8 @@ class MainWindow(QMainWindow):
             )
             self.statusbar.showMessage(f"{status} — en attente du prefetch…")
         else:
-            # Pas de prefetch (inbox était vide ou erreur) — relancer un téléchargement
+            # Pas de prefetch disponible — repasser en écran d'attente et relancer
+            # le worker principal qui pollingera l'inbox automatiquement.
             self.verification_widget.set_info(f"{status} — recherche de la prochaine session…")
             self.session = None
             self._hdd_current_session_id = None

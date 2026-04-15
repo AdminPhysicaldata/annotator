@@ -32,7 +32,7 @@ from typing import Optional
 import cv2
 import numpy as np
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QCursor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
+from PyQt6.QtGui import QColor, QCursor, QFont, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton,
     QSizePolicy, QScrollArea, QSlider, QCheckBox, QSplitter, QVBoxLayout, QWidget,
@@ -487,38 +487,31 @@ class _TimelineBar(QWidget):
 
 
 # ---------------------------------------------------------------------------
-# GripperTimelineWidget — panneaux haute fidélité alignés sur la timeline ns
+# GripperTimelineWidget — rendu QPainter identique à l'annotation timeline
 # ---------------------------------------------------------------------------
 
-_GRIPPER_TRACK_H = 64    # px par panneau (titre + waveform)
-_GRIPPER_TITLE_H = 16    # bandeau titre
-_GRIPPER_MARGIN  = 10    # marge gauche/droite
+_GRIPPER_TRACK_H = 36
 _GRIPPER_COLORS_VER: dict[str, QColor] = {
-    "left":  QColor("#22d386"),
-    "right": QColor("#f5c542"),
+    "left":  QColor("#22d386"),   # vert
+    "right": QColor("#f5c542"),   # jaune
 }
-_BG_VER     = QColor("#1e1e2e")
-_BG_VER_ALT = QColor("#181825")
-_GRID_VER   = QColor("#313244")
-_FG_VER     = QColor("#cdd6f4")
-_CURSOR_VER = QColor("#f38ba8")
 
 
 class GripperTimelineWidget(QWidget):
     """Affiche les signaux gripper sous forme de waveform QPainter,
     alignés sur la timeline vidéo en nanosecondes absolues.
 
-    Chaque panneau occupe _GRIPPER_TRACK_H pixels en hauteur.
-    API publique : set_range(), set_gripper_ref_ns(), set_data(), set_cursor_ns().
+    Chaque track occupe _GRIPPER_TRACK_H pixels en hauteur.
+    Le curseur suit set_cursor_ns().
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._start_ns       = 0.0
-        self._end_ns         = 1.0
-        self._cursor_ns      = 0.0
-        self._gripper_ref_ns = 0.0
-        self._gripper_data: dict = {}
+        self._start_ns      = 0.0
+        self._end_ns        = 1.0
+        self._cursor_ns     = 0.0
+        self._gripper_ref_ns = 0.0   # origine des timestamps gripper (ns Unix)
+        self._gripper_data: dict = {}  # gid -> (timestamps_s, angles)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._update_height()
 
@@ -537,7 +530,7 @@ class GripperTimelineWidget(QWidget):
         self.update()
 
     def set_data(self, gripper_data: dict) -> None:
-        """gripper_data: gid -> (timestamps_s np.ndarray, openings_mm np.ndarray)"""
+        """gripper_data: gid -> (timestamps_s np.ndarray, angles np.ndarray)"""
         self._gripper_data = gripper_data or {}
         self._update_height()
         self.update()
@@ -550,157 +543,141 @@ class GripperTimelineWidget(QWidget):
     def paintEvent(self, event) -> None:
         if not self._gripper_data:
             return
-
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         w   = self.width()
         dur = self._end_ns - self._start_ns
         if dur <= 0 or w <= 0:
-            p.end()
             return
 
-        margin = _GRIPPER_MARGIN
+        margin = 10
 
         def ns_to_x(t_ns: float) -> int:
             return int(margin + (t_ns - self._start_ns) / dur * (w - 2 * margin))
 
-        cursor_x = ns_to_x(self._cursor_ns)
+        def ts_to_x(t_s: float) -> int:
+            """Convertit un timestamp gripper (secondes depuis ref) en pixel."""
+            return ns_to_x(self._gripper_ref_ns + t_s * 1e9)
 
-        for row, (gid, (timestamps, angles)) in enumerate(self._gripper_data.items()):
-            color    = _GRIPPER_COLORS_VER.get(gid, QColor(200, 200, 200))
-            py0      = row * _GRIPPER_TRACK_H
-            plot_top = py0 + _GRIPPER_TITLE_H
-            plot_bot = py0 + _GRIPPER_TRACK_H - 2
-            plot_h   = plot_bot - plot_top
+        gripper_y = 0
+        for gid, (timestamps, angles) in self._gripper_data.items():
+            color = _GRIPPER_COLORS_VER.get(gid, QColor(200, 200, 200))
 
-            # ── Fond du panneau ──────────────────────────────────────────
-            bg = _BG_VER_ALT if row % 2 == 1 else _BG_VER
-            p.fillRect(0, py0, w, _GRIPPER_TRACK_H, bg)
-            p.setPen(QPen(_GRID_VER, 1))
-            p.drawLine(0, py0, w, py0)
+            # Background
+            bg = QColor(color)
+            bg.setAlpha(18)
+            p.fillRect(0, gripper_y, w, _GRIPPER_TRACK_H, bg)
 
-            # ── Bandeau titre ─────────────────────────────────────────────
-            title_bg = QColor(color); title_bg.setAlpha(10)
-            p.fillRect(0, py0, w, _GRIPPER_TITLE_H, title_bg)
+            # Separator
+            p.setPen(QPen(QColor("#313244"), 1))
+            p.drawLine(0, gripper_y, w, gripper_y)
 
-            side = "Left" if gid in ("left", "1") else "Right"
-            tc = QColor(color); tc.setAlpha(210)
-            p.setPen(tc)
-            p.setFont(QFont("Menlo", 8, QFont.Weight.Bold))
-            p.drawText(margin, py0, w - 2 * margin, _GRIPPER_TITLE_H,
+            # Label
+            label_color = QColor(color)
+            label_color.setAlpha(180)
+            p.setPen(label_color)
+            p.setFont(QFont("Menlo", 8))
+            side_label = "Left" if gid in ("left", "1") else "Right"
+            p.drawText(margin + 2, gripper_y + 1, w - margin - 4, _GRIPPER_TRACK_H - 2,
                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                       f"{side} gripper")
+                       side_label)
 
-            # ── Waveform ──────────────────────────────────────────────────
+            # Waveform — rendu robuste avec agrégation par colonne de pixels
             if timestamps is not None and angles is not None and len(timestamps) > 1:
                 ts_arr  = np.asarray(timestamps, dtype=np.float64)
                 ang_arr = np.asarray(angles,     dtype=np.float64)
                 valid   = np.isfinite(ang_arr)
-
                 if valid.any():
                     ts_v  = ts_arr[valid]
                     ang_v = ang_arr[valid]
-                    a_min = float(ang_v.min())
-                    a_max = float(ang_v.max())
-                    a_rng = a_max - a_min if a_max > a_min else 1.0
 
-                    # Grille dotée aux valeurs min/mid/max
-                    for val in (a_max, (a_max + a_min) / 2.0, a_min):
-                        norm = (val - a_min) / a_rng
-                        gy   = int(plot_top + (1.0 - norm) * plot_h)
-                        gc   = QColor(_GRID_VER); gc.setAlpha(160)
-                        p.setPen(QPen(gc, 1, Qt.PenStyle.DotLine))
-                        p.drawLine(margin, gy, w - margin, gy)
-                        tc2  = QColor(_FG_VER); tc2.setAlpha(70)
-                        p.setPen(tc2)
-                        p.setFont(QFont("Menlo", 7))
-                        p.drawText(w - margin + 2, gy - 8, margin - 2, 16,
-                                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                                   f"{val:.0f}")
+                    a_min   = float(ang_v.min())
+                    a_max   = float(ang_v.max())
+                    a_range = a_max - a_min if a_max > a_min else 1.0
 
-                    # Conversion vectorisée → pixel X
-                    px_xs = (margin
-                             + (self._gripper_ref_ns + ts_v * 1e9 - self._start_ns)
-                             / dur * (w - 2 * margin))
-                    py_ys = plot_top + (1.0 - (ang_v - a_min) / a_rng) * plot_h
+                    inner_h   = _GRIPPER_TRACK_H - 6
+                    inner_top = gripper_y + 3
+                    bottom_y  = inner_top + inner_h
 
-                    # Filtre visible
+                    # Conversion vectorisée timestamp → pixel X
+                    dur_  = self._end_ns - self._start_ns
+                    px_xs = margin + (self._gripper_ref_ns + ts_v * 1e9 - self._start_ns) / dur_ * (w - 2 * margin)
+                    py_ys = inner_top + (1.0 - (ang_v - a_min) / a_range) * inner_h
+
+                    # Filtre sur la plage visible (avec une marge d'1 px)
                     vis = (px_xs >= -1.0) & (px_xs <= w + 1.0)
                     if vis.any():
-                        pxv = px_xs[vis]
-                        pyv = py_ys[vis]
+                        px_v = px_xs[vis]
+                        py_v = py_ys[vis]
 
-                        # Agrégation par colonne de pixels
-                        pxi    = np.round(pxv).astype(np.int32)
-                        order  = np.argsort(pxi, kind="stable")
-                        xs_s   = pxi[order]
-                        ys_s   = pyv[order].astype(np.float32)
-                        splits = np.where(np.diff(xs_s) != 0)[0] + 1
-                        grps   = np.split(ys_s, splits)
-                        uxs    = xs_s[np.concatenate([[0], splits])]
-                        ymids  = np.fromiter(
-                            (float(g.mean()) for g in grps),
-                            dtype=np.float32, count=len(uxs),
-                        )
+                        # ---- Agrégation par colonne de pixels ----
+                        # Plusieurs mesures sur le même pixel X → valeur moyenne
+                        # Élimine les artefacts en dents de scie à haute fréquence
+                        px_int   = np.round(px_v).astype(np.int32)
+                        order    = np.argsort(px_int, kind="stable")
+                        xs_s     = px_int[order]
+                        ys_s     = py_v[order].astype(np.float32)
+                        splits   = np.where(np.diff(xs_s) != 0)[0] + 1
+                        grp_ys   = np.split(ys_s, splits)
+                        uniq_xs  = xs_s[np.concatenate([[0], splits])]
+                        y_mids   = np.array([g.mean() for g in grp_ys], dtype=np.float32)
 
-                        if len(uxs) >= 2:
-                            # Gradient fill
-                            grad = QLinearGradient(0.0, float(plot_top), 0.0, float(plot_bot))
-                            ft = QColor(color); ft.setAlpha(55)
-                            fb = QColor(color); fb.setAlpha(4)
-                            grad.setColorAt(0.0, ft)
-                            grad.setColorAt(1.0, fb)
+                        # Construction des chemins QPainter
+                        fill_path = QPainterPath()
+                        line_path = QPainterPath()
+                        n_pts = len(uniq_xs)
+                        if n_pts > 0:
+                            x0 = int(uniq_xs[0]);  y0 = float(y_mids[0])
+                            fill_path.moveTo(x0, bottom_y)
+                            fill_path.lineTo(x0, y0)
+                            line_path.moveTo(x0, y0)
+                            for i in range(1, n_pts):
+                                xi = int(uniq_xs[i]);  yi = float(y_mids[i])
+                                fill_path.lineTo(xi, yi)
+                                line_path.lineTo(xi, yi)
+                            fill_path.lineTo(int(uniq_xs[-1]), bottom_y)
+                            fill_path.closeSubpath()
 
-                            fill = QPainterPath()
-                            fill.moveTo(float(uxs[0]),  float(plot_bot))
-                            fill.lineTo(float(uxs[0]),  float(ymids[0]))
-                            for i in range(1, len(uxs)):
-                                fill.lineTo(float(uxs[i]), float(ymids[i]))
-                            fill.lineTo(float(uxs[-1]), float(plot_bot))
-                            fill.closeSubpath()
-                            p.setBrush(QBrush(grad))
+                            fill_color = QColor(color)
+                            fill_color.setAlpha(40)
+                            p.setBrush(fill_color)
                             p.setPen(Qt.PenStyle.NoPen)
-                            p.drawPath(fill)
+                            p.drawPath(fill_path)
 
-                            line = QPainterPath()
-                            line.moveTo(float(uxs[0]), float(ymids[0]))
-                            for i in range(1, len(uxs)):
-                                line.lineTo(float(uxs[i]), float(ymids[i]))
-                            lc = QColor(color); lc.setAlpha(220)
-                            p.setPen(QPen(lc, 1.8))
+                            line_color = QColor(color)
+                            line_color.setAlpha(220)
+                            p.setPen(QPen(line_color, 1.5))
                             p.setBrush(Qt.BrushStyle.NoBrush)
-                            p.drawPath(line)
+                            p.drawPath(line_path)
 
-                    # Curseur + dot + label valeur
+                    # Valeur courante : point + label (interpolation sur données filtrées NaN)
                     t_s_cursor = (self._cursor_ns - self._gripper_ref_ns) / 1e9
                     val = float(np.interp(t_s_cursor, ts_v, ang_v))
                     if np.isfinite(val):
-                        norm_val = (val - a_min) / a_rng
-                        dot_y    = int(plot_top + (1.0 - norm_val) * plot_h)
-                        p.setPen(QPen(_CURSOR_VER, 1.5))
-                        p.setBrush(QColor(color))
-                        p.drawEllipse(cursor_x - 4, dot_y - 4, 8, 8)
+                        norm_val = (val - a_min) / a_range
+                        dot_x = ns_to_x(self._cursor_ns)
+                        dot_y = inner_top + int((1.0 - norm_val) * inner_h)
+                        dot_color = QColor(color)
+                        dot_color.setAlpha(255)
+                        p.setPen(QPen(QColor("#f38ba8"), 1))
+                        p.setBrush(dot_color)
+                        p.drawEllipse(dot_x - 3, dot_y - 3, 6, 6)
 
-                        vc = QColor(color); vc.setAlpha(235)
-                        p.setPen(vc)
-                        p.setFont(QFont("Menlo", 8, QFont.Weight.Bold))
-                        lx = cursor_x + 8 if cursor_x < w - 72 else cursor_x - 70
-                        p.drawText(lx, dot_y - 7, 62, 14,
+                        val_color = QColor(color)
+                        val_color.setAlpha(210)
+                        p.setPen(val_color)
+                        p.setFont(QFont("Menlo", 8))
+                        p.drawText(dot_x + 6, gripper_y + 1, 80, _GRIPPER_TRACK_H - 2,
                                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                                    f"{val:.1f} mm")
 
-                        # Résumé dans le bandeau titre
-                        ic = QColor(color); ic.setAlpha(155)
-                        p.setPen(ic)
-                        p.setFont(QFont("Menlo", 7))
-                        p.drawText(margin, py0, w - 2 * margin, _GRIPPER_TITLE_H,
-                                   Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                                   f"{val:.1f} mm  ·  min {a_min:.0f}  max {a_max:.0f}")
+            # Curseur vertical
+            cx = ns_to_x(self._cursor_ns)
+            p.setPen(QPen(QColor("#f38ba8"), 1, Qt.PenStyle.SolidLine))
+            p.drawLine(cx, gripper_y + 1, cx, gripper_y + _GRIPPER_TRACK_H - 1)
 
-            # Curseur vertical (toute la hauteur du panneau)
-            p.setPen(QPen(_CURSOR_VER, 1, Qt.PenStyle.SolidLine))
-            p.drawLine(cursor_x, py0 + 1, cursor_x, py0 + _GRIPPER_TRACK_H - 1)
+            gripper_y += _GRIPPER_TRACK_H
 
         p.end()
 
