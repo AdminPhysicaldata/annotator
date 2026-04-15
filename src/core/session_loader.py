@@ -380,8 +380,23 @@ class SessionDataLoader:
                     if col in parsed_df.columns:
                         df[col] = parsed_df[col]
 
-            # Resolve timestamp — priority: t_ns > time_seconds > timestamp
-            if "t_ns" in df.columns:
+            # Resolve timestamp — priority: t_ms > t_ns > time_seconds > timestamp
+            t_source = None
+            if "t_ms" in df.columns and pd.to_numeric(df["t_ms"], errors="coerce").notna().sum() > 0:
+                try:
+                    t_raw = pd.to_numeric(df["t_ms"], errors="coerce") / 1000.0
+                    t0 = float(t_raw.dropna().iloc[0]) if not t_raw.dropna().empty else 0.0
+                    df["t"] = t_raw - t0
+                    n_before = len(df)
+                    df = df.dropna(subset=["t"]).copy()
+                    if n_before - len(df) > 0:
+                        logger.warning("%s: dropped %d rows with invalid t_ms", csv_path.name, n_before - len(df))
+                    logger.info("Gripper '%s': using t_ms column for timestamps (origin=%.3f s)", side, t0)
+                    t_source = "t_ms"
+                except Exception as exc:
+                    logger.error("Gripper '%s' t_ms conversion failed: %s", side, exc)
+                    continue
+            elif "t_ns" in df.columns:
                 try:
                     ref_ns = self._ref_time.value  # ns since Unix epoch
                     df["t"] = (pd.to_numeric(df["t_ns"], errors="coerce") - ref_ns) / 1e9
@@ -434,7 +449,7 @@ class SessionDataLoader:
                 logger.warning("Gripper '%s' has no valid data after parsing — skipping", side)
                 continue
 
-            df = self._clean_gripper_df(df, side)
+            df = self._clean_gripper_df(df, side, skip_reanchor=(t_source == "t_ms"))
             if len(df) < 2:
                 logger.warning("Gripper '%s': fewer than 2 rows after cleaning — skipping", side)
                 continue
@@ -444,7 +459,8 @@ class SessionDataLoader:
 
         return result
 
-    def _clean_gripper_df(self, df: pd.DataFrame, side: str) -> pd.DataFrame:
+    def _clean_gripper_df(self, df: pd.DataFrame, side: str,
+                          skip_reanchor: bool = False) -> pd.DataFrame:
         """Clean and normalise a raw gripper DataFrame.
 
         Steps (applied in order):
@@ -453,6 +469,7 @@ class SessionDataLoader:
            then resets to ~0 — identified by a backward jump > 50 s).
         3. Recalculate t from the raw ``timestamp`` column when available so
            that t always starts at 0 and is free of counter drift.
+           Skipped when ``skip_reanchor=True`` (e.g. t already derived from t_ms).
         4. Sort by t, deduplicate.
         5. Log warnings for abnormal timestamp jumps (continuity check).
         6. Apply centred rolling-mean smoothing (window=5) on opening_mm and
@@ -488,7 +505,9 @@ class SessionDataLoader:
             return df
 
         # 3. Recalculate t from raw timestamp when available
-        if "timestamp" in df.columns:
+        if skip_reanchor:
+            logger.debug("Gripper '%s': skipping timestamp re-anchor (t already derived from t_ms)", side)
+        elif "timestamp" in df.columns:
             ts_raw = pd.to_numeric(df["timestamp"], errors="coerce")
             valid_ts = ts_raw.dropna()
             if not valid_ts.empty:
