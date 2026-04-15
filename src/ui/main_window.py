@@ -2004,9 +2004,6 @@ class MainWindow(QMainWindow):
                 except Exception as exc:
                     logger.warning("Gripper '%s' timeseries unavailable: %s", side, exc)
             self.timeline.set_gripper_data(gripper_data)
-            # Adjust overall timeline height: base + controls row + gripper tracks
-            n_grippers = len(gripper_data)
-            self.timeline.setFixedHeight(110 + n_grippers * 24)
 
             # Load 3D tracker trajectories into the viewers
             try:

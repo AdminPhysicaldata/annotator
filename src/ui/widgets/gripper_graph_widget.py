@@ -1,282 +1,375 @@
-"""Gripper angle graph widget — style Rerun/ultra-précis.
+"""Gripper data graph widget.
 
-Affiche les angles left/right des grippers comme des séries temporelles
-avec :
-  - Courbe épaisse + remplissage gradient translucide sous la courbe
-  - Curseur vertical rouge proéminent avec label de valeur instantanée
-  - Overlay min / max / current en coin supérieur droit
-  - Grille fine, axes typographiés, background sombre cohérent
+Affiche les signaux d'ouverture gripper (mm) sous forme de panneaux
+empilés, alignés pixel-parfait avec la timeline d'annotation (même
+marge gauche/droite de 20 px).
+
+Chaque panneau (_PANEL_H px) contient :
+  - Bandeau titre avec nom du gripper et valeur courante
+  - Zone de tracé avec fill gradient + ligne
+  - Lignes de grille dotées aux valeurs min/mid/max
+  - Curseur vertical rouge + dot flottant + label valeur
+Dernier panneau suivi d'un ruler temporel (_RULER_H px).
 """
 
 import numpy as np
+from PyQt6.QtWidgets import QWidget, QSizePolicy
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
-import pyqtgraph as pg
-from pyqtgraph import mkPen, mkBrush
-
+from PyQt6.QtGui import (
+    QPainter, QPen, QColor, QBrush, QLinearGradient,
+    QPainterPath, QFont, QPixmap,
+)
+from typing import Optional, Dict, Tuple
 
 # ---------------------------------------------------------------------------
 # Palette (Catppuccin Mocha)
 # ---------------------------------------------------------------------------
 
-GRIPPER_COLORS = {
-    "left":  ( 34, 211, 134),   # vert  #22d386
-    "right": (245, 197,  66),   # jaune #f5c542
-    # Legacy keys
-    "1":     ( 34, 211, 134),
-    "2":     (245, 197,  66),
+_BG      = QColor("#1e1e2e")
+_BG_ALT  = QColor("#181825")
+_GRID    = QColor("#313244")
+_FG      = QColor("#cdd6f4")
+_CURSOR  = QColor("#f38ba8")
+
+_COLORS: Dict[str, QColor] = {
+    "left":  QColor("#22d386"),
+    "right": QColor("#f5c542"),
+    "1":     QColor("#22d386"),
+    "2":     QColor("#f5c542"),
 }
 
-_BG       = "#1e1e2e"
-_FG       = "#cdd6f4"
-_GRID_CLR = "#313244"
-_AXIS_CLR = "#585b70"
+# ---------------------------------------------------------------------------
+# Layout constants
+# ---------------------------------------------------------------------------
+
+_PANEL_H  = 64   # px par panneau gripper
+_TITLE_H  = 16   # bandeau titre en haut de chaque panneau
+_RULER_H  = 18   # ruler temporel en bas
+_MARGIN   = 20   # marge gauche/droite (aligné avec AnnotationTimelineBar)
 
 
 # ---------------------------------------------------------------------------
-# Per-gripper plot panel
+# Helpers
 # ---------------------------------------------------------------------------
 
-class _GripperPlot:
-    """Un panneau pyqtgraph pour un seul gripper."""
-
-    def __init__(self, layout: pg.GraphicsLayout, row: int, gid: str,
-                 timestamps: np.ndarray, angles: np.ndarray,
-                 link_to: "pg.PlotItem | None" = None,
-                 x_range: "tuple | None" = None):
-        self.gid = gid
-        self.timestamps = timestamps
-        self.angles = angles
-
-        color = GRIPPER_COLORS.get(gid, (200, 200, 200))
-        r, g, b = color
-
-        # ── Plot ──────────────────────────────────────────────────────────
-        self.plot: pg.PlotItem = layout.addPlot(row=row, col=0)
-
-        # Axes style
-        for axis_name in ("left", "bottom", "top", "right"):
-            ax = self.plot.getAxis(axis_name)
-            ax.setPen(pg.mkPen(_GRID_CLR))
-            ax.setTextPen(pg.mkPen(_FG))
-            ax.setStyle(tickFont=pg.QtGui.QFont("Menlo", 8))
-
-        self.plot.getAxis("left").setWidth(52)
-        self.plot.showGrid(x=True, y=True, alpha=0.18)
-
-        # Lien X entre tous les plots
-        if link_to is not None:
-            self.plot.setXLink(link_to)
-
-        # ── Courbe principale ─────────────────────────────────────────────
-        pen_main = mkPen(color=(r, g, b), width=2.0)
-        self._curve = self.plot.plot(
-            timestamps, angles,
-            pen=pen_main,
-            antialias=True,
-            name=f"Gripper {gid}",
-        )
-
-        # ── Remplissage sous la courbe ────────────────────────────────────
-        fill_color = (r, g, b, 35)
-        self._fill = pg.FillBetweenItem(
-            self._curve,
-            pg.PlotDataItem([timestamps[0], timestamps[-1]], [0.0, 0.0],
-                            pen=mkPen(None)),
-            brush=mkBrush(*fill_color),
-        )
-        self.plot.addItem(self._fill)
-
-        # ── Label côté gauche ─────────────────────────────────────────────
-        side = "Left" if gid in ("left", "1") else "Right"
-        label_html = (
-            f'<span style="color:rgb({r},{g},{b});font-size:9pt;'
-            f'font-family:Menlo">'
-            f'<b>{side}</b></span>'
-        )
-        self.plot.setLabel("left", label_html)
-        self.plot.getAxis("left").enableAutoSIPrefix(False)
-
-        # Plage Y : petite marge
-        valid = angles[np.isfinite(angles)]
-        if valid.size:
-            a_min, a_max = float(valid.min()), float(valid.max())
-            margin = max((a_max - a_min) * 0.12, 0.5)
-            self.plot.setYRange(a_min - margin, a_max + margin, padding=0)
-        else:
-            self.plot.setYRange(0, 1, padding=0)
-
-        # Plage X : toute la durée de la session
-        if x_range is not None:
-            self.plot.setXRange(x_range[0], x_range[1], padding=0)
-        self.plot.setLimits(xMin=x_range[0] if x_range else None,
-                            xMax=x_range[1] if x_range else None)
-
-        # ── Curseur vertical ─────────────────────────────────────────────
-        self.cursor = pg.InfiniteLine(
-            pos=0,
-            angle=90,
-            pen=mkPen("#f38ba8", width=1.5, style=Qt.PenStyle.SolidLine),
-            movable=False,
-        )
-        self.plot.addItem(self.cursor)
-
-        # ── Point mobile sur la courbe ────────────────────────────────────
-        self._dot = pg.ScatterPlotItem(
-            [0.0], [0.0],
-            symbol="o",
-            size=7,
-            pen=mkPen("#f38ba8", width=1.5),
-            brush=mkBrush(r, g, b, 220),
-        )
-        self.plot.addItem(self._dot)
-
-        # ── Overlay texte : valeur courante + min/max ─────────────────────
-        self._value_label = pg.TextItem(
-            text="",
-            anchor=(1.0, 0.0),
-            color=(r, g, b),
-        )
-        self._value_label.setFont(pg.QtGui.QFont("Menlo", 9))
-        self.plot.addItem(self._value_label)
-
-        # Pré-calcul pour interpolation
-        self._ts = timestamps
-        self._angles = angles
-        self._a_min = float(valid.min()) if valid.size else 0.0
-        self._a_max = float(valid.max()) if valid.size else 1.0
-
-        self._update_overlay_pos()
-
-    # ------------------------------------------------------------------
-    def _update_overlay_pos(self) -> None:
-        """Place le label en haut à droite du plot."""
-        vr = self.plot.viewRange()
-        x_max = vr[0][1]
-        y_max = vr[1][1]
-        self._value_label.setPos(x_max, y_max)
-
-    def set_time(self, t: float) -> None:
-        self.cursor.setValue(t)
-
-        # Interpoler la valeur
-        if self._ts is not None and len(self._ts) > 1:
-            val = float(np.interp(t, self._ts, self._angles))
-            if np.isfinite(val):
-                self._dot.setData([t], [val])
-                self._dot.setVisible(True)
-
-                self._update_overlay_pos()
-                vr = self.plot.viewRange()
-                x_max = vr[0][1]
-                y_max = vr[1][1]
-                self._value_label.setPos(x_max, y_max)
-
-                unit = "mm"
-                self._value_label.setText(
-                    f" {val:+.2f} {unit}  \n"
-                    f" min {self._a_min:.1f}  max {self._a_max:.1f}  "
-                )
-            else:
-                self._dot.setVisible(False)
-                self._value_label.setText("")
+def _nice_interval(duration: float, max_ticks: int = 10) -> float:
+    """Retourne un intervalle de tick 'propre' pour un axe temporel."""
+    if duration <= 0:
+        return 1.0
+    raw = duration / max_ticks
+    for step in (0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120):
+        if step >= raw:
+            return float(step)
+    return float(int(raw / 60 + 1) * 60)
 
 
 # ---------------------------------------------------------------------------
-# Widget public
+# Widget
 # ---------------------------------------------------------------------------
 
 class GripperGraphWidget(QWidget):
-    """Affiche les données gripper (angle/ouverture) sous forme de
-    graphiques de séries temporelles haute fidélité (style Rerun)."""
+    """Panneaux empilés de séries temporelles d'ouverture gripper."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._panels: list[_GripperPlot] = []
-        self._current_time = 0.0
-        self._setup_ui()
+        self._data: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+        self._current_time: float = 0.0
+        self._fps: float = 30.0
+        self._frame_count: int = 0
+        self._cache: Optional[QPixmap] = None
+
+        self.setMinimumHeight(0)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._sync_height()
 
     # ------------------------------------------------------------------
-    def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+    # Internal
+    # ------------------------------------------------------------------
 
-        pg.setConfigOptions(antialias=True, background=_BG, foreground=_FG)
-
-        self.graphics_layout = pg.GraphicsLayoutWidget()
-        self.graphics_layout.setBackground(_BG)
-        self.graphics_layout.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
-        # Espacement vertical entre les plots
-        self.graphics_layout.ci.layout.setSpacing(4)
-        layout.addWidget(self.graphics_layout)
+    def _sync_height(self) -> None:
+        n = len(self._data)
+        self.setFixedHeight(n * _PANEL_H + (_RULER_H if n > 0 else 0))
 
     # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
     def set_data(self, gripper_data: dict) -> None:
         """Charge les données gripper.
 
         Args:
-            gripper_data: dict gid -> (timestamps np.ndarray, angles np.ndarray)
+            gripper_data: dict gid -> (timestamps_s np.ndarray, openings_mm np.ndarray)
         """
-        self.graphics_layout.clear()
-        self._panels = []
+        self._data = {}
+        if gripper_data:
+            for gid, v in gripper_data.items():
+                ts, ang = v
+                if ts is not None and ang is not None and len(ts) > 1:
+                    self._data[gid] = (
+                        np.asarray(ts,  dtype=np.float64),
+                        np.asarray(ang, dtype=np.float64),
+                    )
+        self._cache = None
+        self._sync_height()
+        self.update()
 
-        if not gripper_data:
-            p = self.graphics_layout.addPlot(row=0, col=0)
-            p.setTitle("No gripper data", color=_AXIS_CLR)
+    def set_current_time(self, t: float) -> None:
+        """Déplace le curseur au temps t (secondes depuis début de session)."""
+        self._current_time = float(t)
+        self.update()
+
+    def set_fps(self, fps: float) -> None:
+        self._fps = float(fps)
+        self._cache = None
+        self.update()
+
+    def set_frame_count(self, count: int) -> None:
+        self._frame_count = int(count)
+        self._cache = None
+        self.update()
+
+    # ------------------------------------------------------------------
+    # Coordinate helper
+    # ------------------------------------------------------------------
+
+    def _t_to_x(self, t: float, w: int) -> float:
+        """Convertit un temps (s) en pixel X, aligné avec la timeline."""
+        if self._fps <= 0 or self._frame_count <= 1:
+            return float(_MARGIN)
+        usable = w - 2 * _MARGIN
+        frac = min(max(t * self._fps / (self._frame_count - 1), 0.0), 1.0)
+        return _MARGIN + frac * usable
+
+    # ------------------------------------------------------------------
+    # Static layer — waveforms + grilles (mise en cache)
+    # ------------------------------------------------------------------
+
+    def _build_static(self, w: int, h: int) -> QPixmap:
+        pix = QPixmap(w, h)
+        pix.fill(_BG)
+        if not self._data:
+            return pix
+
+        p = QPainter(pix)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        usable_x = w - 2 * _MARGIN
+
+        for row, (gid, (ts_arr, ang_arr)) in enumerate(self._data.items()):
+            color = _COLORS.get(gid, QColor("#cdd6f4"))
+            py0 = row * _PANEL_H
+
+            # ── Fond du panneau ──────────────────────────────────────────
+            bg = _BG_ALT if row % 2 == 1 else _BG
+            p.fillRect(0, py0, w, _PANEL_H, bg)
+
+            # Séparateur haut
+            p.setPen(QPen(_GRID, 1))
+            p.drawLine(0, py0, w, py0)
+
+            # ── Bandeau titre ─────────────────────────────────────────────
+            title_bg = QColor(color)
+            title_bg.setAlpha(10)
+            p.fillRect(0, py0, w, _TITLE_H, title_bg)
+
+            side = "Left" if gid in ("left", "1") else "Right"
+            tc = QColor(color)
+            tc.setAlpha(210)
+            p.setPen(tc)
+            p.setFont(QFont("Menlo", 8, QFont.Weight.Bold))
+            p.drawText(_MARGIN, py0, usable_x, _TITLE_H,
+                       Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                       f"{side} gripper")
+
+            # ── Zone de tracé ─────────────────────────────────────────────
+            plot_top    = py0 + _TITLE_H
+            plot_bottom = py0 + _PANEL_H - 2
+            plot_h      = plot_bottom - plot_top
+
+            valid = np.isfinite(ang_arr)
+            if not valid.any() or len(ts_arr) < 2:
+                p.setPen(QColor(_FG).darker(150))
+                p.setFont(QFont("Menlo", 8))
+                p.drawText(_MARGIN, plot_top, usable_x, plot_h,
+                           Qt.AlignmentFlag.AlignCenter, "no data")
+                continue
+
+            ts_v  = ts_arr[valid]
+            ang_v = ang_arr[valid]
+            a_min = float(ang_v.min())
+            a_max = float(ang_v.max())
+            a_rng = a_max - a_min if a_max > a_min else 1.0
+
+            # ── Lignes de grille + ticks Y ────────────────────────────────
+            for val in (a_max, (a_max + a_min) / 2.0, a_min):
+                norm = (val - a_min) / a_rng
+                gy = int(plot_top + (1.0 - norm) * plot_h)
+
+                grid_c = QColor(_GRID)
+                grid_c.setAlpha(180)
+                p.setPen(QPen(grid_c, 1, Qt.PenStyle.DotLine))
+                p.drawLine(_MARGIN, gy, w - _MARGIN, gy)
+
+                tick_c = QColor(_FG)
+                tick_c.setAlpha(80)
+                p.setPen(tick_c)
+                p.setFont(QFont("Menlo", 7))
+                p.drawText(w - _MARGIN + 2, gy - 8, _MARGIN - 2, 16,
+                           Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                           f"{val:.0f}")
+
+            # ── Waveform — agrégation vectorisée par colonne de pixels ────
+            if self._frame_count > 1 and self._fps > 0:
+                px_xs = (_MARGIN
+                         + np.clip(ts_v * self._fps / (self._frame_count - 1),
+                                   0.0, 1.0) * usable_x)
+            else:
+                t_rng = float(ts_v[-1] - ts_v[0]) if ts_v[-1] > ts_v[0] else 1.0
+                px_xs = _MARGIN + (ts_v - ts_v[0]) / t_rng * usable_x
+
+            py_ys = plot_top + (1.0 - (ang_v - a_min) / a_rng) * plot_h
+
+            px_int = np.round(px_xs).astype(np.int32)
+            order  = np.argsort(px_int, kind="stable")
+            xs_s   = px_int[order]
+            ys_s   = py_ys[order].astype(np.float32)
+            splits = np.where(np.diff(xs_s) != 0)[0] + 1
+            grps   = np.split(ys_s, splits)
+            uxs    = xs_s[np.concatenate([[0], splits])]
+            ymids  = np.fromiter(
+                (float(g.mean()) for g in grps),
+                dtype=np.float32, count=len(uxs),
+            )
+
+            if len(uxs) < 2:
+                continue
+
+            # Gradient fill
+            grad = QLinearGradient(0.0, float(plot_top), 0.0, float(plot_bottom))
+            fill_top = QColor(color); fill_top.setAlpha(55)
+            fill_bot = QColor(color); fill_bot.setAlpha(4)
+            grad.setColorAt(0.0, fill_top)
+            grad.setColorAt(1.0, fill_bot)
+
+            fill_path = QPainterPath()
+            fill_path.moveTo(float(uxs[0]),  float(plot_bottom))
+            fill_path.lineTo(float(uxs[0]),  float(ymids[0]))
+            for i in range(1, len(uxs)):
+                fill_path.lineTo(float(uxs[i]), float(ymids[i]))
+            fill_path.lineTo(float(uxs[-1]), float(plot_bottom))
+            fill_path.closeSubpath()
+
+            p.setBrush(QBrush(grad))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawPath(fill_path)
+
+            # Ligne principale
+            line_path = QPainterPath()
+            line_path.moveTo(float(uxs[0]), float(ymids[0]))
+            for i in range(1, len(uxs)):
+                line_path.lineTo(float(uxs[i]), float(ymids[i]))
+
+            lc = QColor(color); lc.setAlpha(220)
+            p.setPen(QPen(lc, 1.8))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPath(line_path)
+
+        # ── Ruler temporel ────────────────────────────────────────────────
+        ruler_y = len(self._data) * _PANEL_H
+        p.fillRect(0, ruler_y, w, _RULER_H, QColor("#181825"))
+        p.setPen(QPen(_GRID, 1))
+        p.drawLine(0, ruler_y, w, ruler_y)
+
+        if self._fps > 0 and self._frame_count > 1:
+            dur  = (self._frame_count - 1) / self._fps
+            step = _nice_interval(dur, max_ticks=10)
+            p.setFont(QFont("Menlo", 7))
+            tc = QColor(_FG); tc.setAlpha(130)
+            t = 0.0
+            while t <= dur + step * 0.5:
+                tx = int(self._t_to_x(t, w))
+                p.setPen(QPen(_GRID, 1))
+                p.drawLine(tx, ruler_y, tx, ruler_y + 4)
+                p.setPen(tc)
+                p.drawText(tx - 20, ruler_y + 4, 40, _RULER_H - 4,
+                           Qt.AlignmentFlag.AlignCenter,
+                           f"{t:.1f}s")
+                t += step
+
+        p.end()
+        return pix
+
+    # ------------------------------------------------------------------
+    # paintEvent — couche statique + couche dynamique (curseur)
+    # ------------------------------------------------------------------
+
+    def paintEvent(self, event) -> None:
+        w, h = self.width(), self.height()
+        if w <= 0 or h <= 0 or not self._data:
             return
 
-        first_plot = None
-        for row, (gid, (timestamps, angles)) in enumerate(gripper_data.items()):
-            if timestamps is None or angles is None:
+        if (self._cache is None
+                or self._cache.width() != w
+                or self._cache.height() != h):
+            self._cache = self._build_static(w, h)
+
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.drawPixmap(0, 0, self._cache)
+
+        cx = int(self._t_to_x(self._current_time, w))
+
+        for row, (gid, (ts_arr, ang_arr)) in enumerate(self._data.items()):
+            color = _COLORS.get(gid, QColor("#cdd6f4"))
+            py0         = row * _PANEL_H
+            plot_top    = py0 + _TITLE_H
+            plot_bottom = py0 + _PANEL_H - 2
+            plot_h      = plot_bottom - plot_top
+
+            # Curseur vertical (toute la hauteur du panneau)
+            p.setPen(QPen(_CURSOR, 1, Qt.PenStyle.SolidLine))
+            p.drawLine(cx, py0 + 1, cx, py0 + _PANEL_H - 1)
+
+            # Interpolation de la valeur courante
+            valid = np.isfinite(ang_arr)
+            if not valid.any():
                 continue
-            ts = np.asarray(timestamps, dtype=float)
-            ang = np.asarray(angles, dtype=float)
-            if len(ts) < 2:
+
+            ts_v  = ts_arr[valid]
+            ang_v = ang_arr[valid]
+            a_min = float(ang_v.min())
+            a_max = float(ang_v.max())
+            a_rng = a_max - a_min if a_max > a_min else 1.0
+
+            val = float(np.interp(self._current_time, ts_v, ang_v))
+            if not np.isfinite(val):
                 continue
 
-            panel = _GripperPlot(
-                self.graphics_layout, row, gid, ts, ang,
-                link_to=first_plot,
-            )
-            if first_plot is None:
-                first_plot = panel.plot
+            norm  = (val - a_min) / a_rng
+            dot_y = int(plot_top + (1.0 - norm) * plot_h)
 
-            # Masquer l'axe X sur tous sauf le dernier
-            if row < len(gripper_data) - 1:
-                panel.plot.getAxis("bottom").setStyle(showValues=False)
-                panel.plot.getAxis("bottom").setLabel("")
-            else:
-                panel.plot.setLabel("bottom", "Time", units="s")
+            # Dot sur la courbe
+            p.setPen(QPen(_CURSOR, 1.5))
+            p.setBrush(QColor(color))
+            p.drawEllipse(cx - 4, dot_y - 4, 8, 8)
 
-            self._panels.append(panel)
+            # Label valeur (bascule côté si proche du bord droit)
+            vc = QColor(color); vc.setAlpha(235)
+            p.setPen(vc)
+            p.setFont(QFont("Menlo", 8, QFont.Weight.Bold))
+            lx = cx + 8 if cx < w - 72 else cx - 70
+            p.drawText(lx, dot_y - 7, 62, 14,
+                       Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                       f"{val:.1f} mm")
 
-        # Appliquer le temps courant immédiatement
-        for panel in self._panels:
-            panel.set_time(self._current_time)
+            # Résumé valeur + min/max dans le bandeau titre (top-right)
+            ic = QColor(color); ic.setAlpha(155)
+            p.setPen(ic)
+            p.setFont(QFont("Menlo", 7))
+            side = "Left" if gid in ("left", "1") else "Right"
+            usable_x = w - 2 * _MARGIN
+            p.drawText(_MARGIN, py0, usable_x, _TITLE_H,
+                       Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                       f"{val:.1f} mm  ·  min {a_min:.0f}  max {a_max:.0f}")
 
-    # ------------------------------------------------------------------
-    def set_current_time(self, t: float) -> None:
-        """Déplace le curseur au temps t (secondes)."""
-        self._current_time = t
-        for panel in self._panels:
-            panel.set_time(t)
-
-    # ------------------------------------------------------------------
-    def show_nan_warnings(self, warnings: dict) -> None:
-        """Affiche un titre d'avertissement NaN sur les plots concernés.
-
-        Args:
-            warnings: dict gid -> message
-        """
-        panels_by_gid = {p.gid: p for p in self._panels}
-        for gid, msg in warnings.items():
-            panel = panels_by_gid.get(gid)
-            if panel is None:
-                continue
-            panel.plot.setTitle(
-                f"⚠ Gripper {gid.capitalize()} — {msg}",
-                color="#fab387", size="8pt",
-            )
+        p.end()

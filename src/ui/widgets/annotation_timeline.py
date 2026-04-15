@@ -21,13 +21,7 @@ from PyQt6.QtGui import (
 )
 from typing import List, Optional, Tuple
 
-# Hauteur (px) de chaque piste gripper dans la timeline
-_GRIPPER_TRACK_H = 24
-# Couleurs des grippers (R, G, B)
-_GRIPPER_COLORS = {
-    "left":  QColor(255, 200, 50),
-    "right": QColor(50, 200, 255),
-}
+from .gripper_graph_widget import GripperGraphWidget
 
 from ...labeling.label_manager import (
     LabelManager, Annotation, LabelType, UNLABELED_LABEL_ID, IDLE_LABEL_ID
@@ -73,9 +67,6 @@ class AnnotationTimelineBar(QWidget):
         self._hover_frame = -1
         self._drag_target: str = "playhead"  # "playhead" | "crop_start" | "crop_end"
 
-        # Gripper data: gid -> (timestamps np.ndarray, angles np.ndarray)
-        self._gripper_data: dict = {}
-
         # Selected segment for labeling (highlight)
         self._selected_segment: Optional[Annotation] = None
 
@@ -97,12 +88,9 @@ class AnnotationTimelineBar(QWidget):
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-    def _gripper_section_h(self) -> int:
-        return len(self._gripper_data) * _GRIPPER_TRACK_H
-
     def _annotation_track_bottom(self) -> int:
-        """Bottom y of the annotation area (above gripper tracks)."""
-        return self.height() - 20 - self._gripper_section_h()
+        """Bottom y of the annotation area."""
+        return self.height() - 20
 
     # ------------------------------------------------------------------
     # Public setters
@@ -130,12 +118,6 @@ class AnnotationTimelineBar(QWidget):
     def set_annotations(self, annotations: List[Annotation], label_colors: dict) -> None:
         self._annotations = annotations
         self._label_colors = label_colors
-        self._static_cache = None
-        self.update()
-
-    def set_gripper_data(self, gripper_data: dict) -> None:
-        """Set gripper data for inline display. gripper_data: gid -> (timestamps, angles)."""
-        self._gripper_data = gripper_data or {}
         self._static_cache = None
         self.update()
 
@@ -227,13 +209,9 @@ class AnnotationTimelineBar(QWidget):
             painter.drawText(x + 2, ruler_h - 2, f"{t:.1f}s")
             t += tick_interval
 
-        # --- Layout: annotation tracks then gripper tracks ---
-        # Gripper tracks are at the bottom, one per gripper
-        n_grippers = len(self._gripper_data)
-        gripper_section_h = n_grippers * _GRIPPER_TRACK_H if n_grippers > 0 else 0
-
+        # --- Annotation track layout ---
         track_top = ruler_h + 2
-        track_bottom = h - 20 - gripper_section_h
+        track_bottom = h - 20
         track_h = max(track_bottom - track_top, 2)
         mid_y = track_top + track_h // 2
 
@@ -403,64 +381,6 @@ class AnnotationTimelineBar(QWidget):
             sel_color = QColor("#89b4fa")
             sel_color.setAlpha(30)
             painter.fillRect(x1, track_top, x2 - x1, track_h, sel_color)
-
-        # --- Gripper tracks ---
-        if n_grippers > 0:
-            gripper_y = h - 20 - gripper_section_h
-            painter.setFont(QFont("Courier", 7))
-            for gid, (timestamps, angles) in self._gripper_data.items():
-                color = _GRIPPER_COLORS.get(gid, QColor(200, 200, 200))
-
-                # Background
-                bg = QColor(color)
-                bg.setAlpha(18)
-                painter.fillRect(0, gripper_y, track_width, _GRIPPER_TRACK_H, bg)
-
-                # Separator
-                painter.setPen(QPen(QColor("#313244"), 1))
-                painter.drawLine(0, gripper_y, track_width, gripper_y)
-
-                # Label
-                label_color = QColor(color)
-                label_color.setAlpha(180)
-                painter.setPen(label_color)
-                painter.drawText(3, gripper_y + 1, track_width - 6, _GRIPPER_TRACK_H - 2,
-                                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                                 f"G {gid}")
-
-                # Draw waveform as a filled curve (normalized 0-1)
-                if timestamps is not None and angles is not None and len(timestamps) > 1:
-                    valid = np.isfinite(angles)
-                    if valid.any():
-                        a_min = float(np.nanmin(angles))
-                        a_max = float(np.nanmax(angles))
-                        a_range = a_max - a_min if a_max > a_min else 1.0
-
-                        inner_h = _GRIPPER_TRACK_H - 4
-                        inner_top = gripper_y + 2
-
-                        path = QPainterPath()
-                        first = True
-                        for ts_val, angle_val in zip(timestamps, angles):
-                            if not np.isfinite(angle_val):
-                                first = True
-                                continue
-                            px = time_to_x_static(float(ts_val))
-                            norm = (float(angle_val) - a_min) / a_range
-                            py = inner_top + int((1.0 - norm) * inner_h)
-                            if first:
-                                path.moveTo(px, py)
-                                first = False
-                            else:
-                                path.lineTo(px, py)
-
-                        line_color = QColor(color)
-                        line_color.setAlpha(200)
-                        painter.setPen(QPen(line_color, 1.5))
-                        painter.setBrush(Qt.BrushStyle.NoBrush)
-                        painter.drawPath(path)
-
-                gripper_y += _GRIPPER_TRACK_H
 
         painter.end()
         return pixmap
@@ -757,15 +677,20 @@ class AnnotationTimeline(QWidget):
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 0, 2, 0)
-        layout.setSpacing(4)  # Space between timeline bar and controls
+        layout.setSpacing(2)
 
-        # Timeline bar
+        # Timeline bar (fixed height)
         self.timeline_bar = AnnotationTimelineBar()
+        self.timeline_bar.setFixedHeight(80)
         self.timeline_bar.frame_selected.connect(self._on_bar_frame_selected)
         self.timeline_bar.crop_changed.connect(self._on_crop_changed)
         self.timeline_bar.annotation_clicked.connect(self.annotation_clicked.emit)
         self.timeline_bar.segment_selected.connect(self.segment_selected.emit)
         layout.addWidget(self.timeline_bar)
+
+        # Gripper graph panel (height auto-géré par le widget)
+        self.gripper_widget = GripperGraphWidget()
+        layout.addWidget(self.gripper_widget)
 
         # Controls row (below timeline)
         controls = QHBoxLayout()
@@ -869,12 +794,14 @@ class AnnotationTimeline(QWidget):
     def set_frame_count(self, count: int) -> None:
         self.frame_count = count
         self.timeline_bar.set_frame_count(count)
+        self.gripper_widget.set_frame_count(count)
         self._update_label()
         self._update_crop_label()
 
     def set_fps(self, fps: float) -> None:
         self.fps = fps
         self.timeline_bar.set_fps(fps)
+        self.gripper_widget.set_fps(fps)
         self._update_label()
 
     def set_current_frame(self, frame: int) -> None:
@@ -882,6 +809,7 @@ class AnnotationTimeline(QWidget):
             return
         self.current_frame = frame
         self.timeline_bar.set_current_frame(frame)
+        self.gripper_widget.set_current_time(frame / self.fps if self.fps > 0 else 0.0)
         self._update_label()
         self.frame_changed.emit(frame)
 
@@ -891,18 +819,12 @@ class AnnotationTimeline(QWidget):
             return
         self.current_frame = frame
         self.timeline_bar.set_current_frame(frame)
+        self.gripper_widget.set_current_time(frame / self.fps if self.fps > 0 else 0.0)
         self._update_label()
 
     def set_gripper_data(self, gripper_data: dict) -> None:
-        """Pass gripper data to the timeline bar for inline display.
-
-        Also adjusts the fixed height of the timeline bar to accommodate
-        the gripper tracks.
-        """
-        self.timeline_bar.set_gripper_data(gripper_data)
-        n = len(gripper_data) if gripper_data else 0
-        bar_h = 80 + n * _GRIPPER_TRACK_H  # base height + gripper rows
-        self.timeline_bar.setFixedHeight(bar_h)
+        """Charge les données gripper dans le panneau dédié."""
+        self.gripper_widget.set_data(gripper_data)
 
     def refresh_annotations(self) -> None:
         """Refresh annotation display from label manager."""
