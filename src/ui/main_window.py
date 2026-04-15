@@ -3932,11 +3932,14 @@ class MainWindow(QMainWindow):
     def _on_hdd_prefetch_no_session(self) -> None:
         logger.info("HDD prefetch: inbox vide, aucune session suivante disponible")
         self._hdd_prefetched = None
-        # Si on attend déjà → afficher le message vide
+        # Si on attend déjà → repasser en écran d'attente et relancer le polling
         if self._hdd_waiting_for_prefetch:
             self._hdd_waiting_for_prefetch = False
-            self.verification_widget.set_info("Aucune session suivante dans le HDD inbox.")
-            self.statusbar.showMessage("HDD inbox vide après cette session.")
+            self.session = None
+            self._hdd_current_session_id = None
+            self.stack.setCurrentIndex(0)
+            self.statusbar.showMessage("HDD inbox vide — en attente de nouvelles sessions…")
+            self._start_hdd_verification_download()
 
     def _on_hdd_prefetch_error(self, error: str) -> None:
         logger.warning("HDD prefetch error (non-blocking): %s", error)
