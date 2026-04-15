@@ -602,7 +602,7 @@ class GripperTimelineWidget(QWidget):
                     ts_v  = ts_arr[valid]
                     ang_v = ang_arr[valid]
                     a_min = 0.0
-                    a_max = 75.0
+                    a_max = 60.0
                     a_rng = a_max - a_min
 
                     # Grille dotée aux valeurs min/mid/max
@@ -696,7 +696,7 @@ class GripperTimelineWidget(QWidget):
                         p.setFont(QFont("Menlo", 7))
                         p.drawText(margin, py0, w - 2 * margin, _GRIPPER_TITLE_H,
                                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                                   f"{val:.1f} mm  ·  0 – 75 mm")
+                                   f"{val:.1f} mm  ·  0 – 60 mm")
 
             # Curseur vertical (toute la hauteur du panneau)
             p.setPen(QPen(_CURSOR_VER, 1, Qt.PenStyle.SolidLine))
