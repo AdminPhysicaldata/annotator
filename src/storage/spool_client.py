@@ -130,11 +130,15 @@ class SpoolClient:
         logger.info("SPOOL: %d dossier(s) trouvés dans %s", len(all_dirs), self.inbox_base)
         return all_dirs
 
-    def find_latest_complete_session(self) -> Optional[str]:
+    def find_latest_complete_session(self, exclude: Optional[set] = None) -> Optional[str]:
         """Parcourt l'inbox de la fin vers le début et retourne la première session complète.
 
         Beaucoup plus rapide que de scanner tous les dossiers quand l'inbox
         est grande (ex: 28 000 entrées) : on s'arrête dès la première trouvée.
+
+        Args:
+            exclude: ensemble de noms de sessions à ignorer (déjà essayées et
+                     dont le claim a échoué lors de cette tentative).
         """
         self._ensure_connected()
         try:
@@ -156,6 +160,9 @@ class SpoolClient:
         for name in dirs:
             # Ignorer les dossiers en cours de téléchargement par un autre vérificateur
             if name.endswith(".__wip"):
+                continue
+            # Ignorer les sessions dont le claim a déjà échoué lors de cette passe
+            if exclude and name in exclude:
                 continue
             path = f"{self.inbox_base.rstrip('/')}/{name}"
             try:
@@ -199,12 +206,22 @@ class SpoolClient:
                 continue
             if not stat_mod.S_ISDIR(e.st_mode):
                 continue
-            age = now - (e.st_mtime or 0)
+            # Préférer le mtime du fichier sentinelle .claimed_at (écrit au moment du claim)
+            # plutôt que le mtime du dossier (qui reflète la date d'enregistrement, pas du claim).
+            claim_mtime = e.st_mtime or 0
+            wip_path_tmp = f"{self.inbox_base.rstrip('/')}/{e.filename}"
+            try:
+                marker_stat = self._sftp.stat(f"{wip_path_tmp}/.claimed_at")
+                if marker_stat.st_mtime:
+                    claim_mtime = marker_stat.st_mtime
+            except Exception:
+                pass  # fichier absent (ancien claim) — utiliser le mtime du dossier
+            age = now - claim_mtime
             if age < self._STALE_WIP_SECONDS:
                 continue   # téléchargement encore actif (ou très récent)
 
             original_name = e.filename[: -len(self._WIP_SUFFIX)]
-            wip_path      = f"{self.inbox_base.rstrip('/')}/{e.filename}"
+            wip_path      = wip_path_tmp
             original_path = f"{self.inbox_base.rstrip('/')}/{original_name}"
             try:
                 self._sftp.rename(wip_path, original_path)
@@ -240,6 +257,16 @@ class SpoolClient:
         try:
             self._sftp.rename(original, claimed)
             logger.info("HDD: session '%s' claimed → '%s'", session_id, session_id + ".__wip")
+            # Écrire un fichier sentinelle pour marquer l'heure exacte du claim.
+            # Le mtime du dossier .__wip reflète la date d'enregistrement (pas du claim),
+            # donc restore_stale_wip_sessions ne peut pas se fier au mtime du dossier seul.
+            try:
+                marker = f"{claimed}/.claimed_at"
+                with self._sftp.open(marker, "w") as f:
+                    import time as _time
+                    f.write(str(_time.time()))
+            except Exception as _exc:
+                logger.debug("claim_session: impossible d'écrire .claimed_at : %s", _exc)
             return session_id + ".__wip"
         except Exception as exc:
             logger.warning("HDD: claim échoué pour '%s' (déjà prise ?) : %s", session_id, exc)
@@ -678,27 +705,40 @@ class HddVerificationWorker(QThread):
         )
 
     def _claim_next_session(self, client: "SpoolClient") -> "Optional[tuple[str,str]]":
-        """Tente de trouver et claim une session.  Retourne (session_id, claimed_folder) ou None."""
+        """Tente de trouver et claim une session.  Retourne (session_id, claimed_folder) ou None.
+
+        Parcourt toutes les sessions complètes disponibles dans l'ordre décroissant
+        de mtime.  Si le claim d'une session échoue (race ou permissions), elle est
+        mémorisée et exclue des recherches suivantes afin de ne pas boucler
+        indéfiniment sur la même entrée.
+        """
         import time
 
         # Restaurer d'abord les .__wip abandonnés
         client.restore_stale_wip_sessions()
 
-        for _attempt in range(10):
-            if self._cancel.is_set():
-                return None
-            candidate = client.find_latest_complete_session()
+        failed: set[str] = set()
+
+        while not self._cancel.is_set():
+            candidate = client.find_latest_complete_session(exclude=failed)
             if candidate is None:
-                # Dernier recours : un concurrent vient peut-être de crasher
+                # Plus aucune session disponible — dernier recours : restaurer les wip
                 if client.restore_stale_wip_sessions():
-                    candidate = client.find_latest_complete_session()
+                    candidate = client.find_latest_complete_session(exclude=failed)
                 if candidate is None:
                     return None
+
             claimed_folder = client.claim_session(candidate)
             if claimed_folder is not None:
                 return candidate, claimed_folder
-            # Concurrent race — courte pause puis retry
-            time.sleep(0.3)
+
+            # Claim échoué sur cette session — l'exclure et essayer la suivante
+            logger.info(
+                "HddVerificationWorker: claim échoué sur '%s', passage à la session suivante",
+                candidate,
+            )
+            failed.add(candidate)
+            time.sleep(0.1)
 
         return None
 

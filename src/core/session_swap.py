@@ -13,6 +13,7 @@ de sorte qu'une erreur laisse les fichiers intacts autant que possible.
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Tuple
@@ -131,6 +132,38 @@ def _atomic_swap(p1: Path, p2: Path) -> None:
     logger.debug("Swappé : %s ↔ %s", p1.name, p2.name)
 
 
+def _write_json_atomic(path: Path, data: dict) -> None:
+    """Écrit ``data`` dans ``path`` de façon atomique (temp + os.replace).
+
+    Si l'écriture échoue, le fichier original est préservé intégralement.
+    """
+    tmp = path.with_name(path.name + ".__tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(str(tmp), str(path))
+    except Exception:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _write_csv_atomic(path: Path, df: "pd.DataFrame") -> None:
+    """Écrit un DataFrame CSV dans ``path`` de façon atomique."""
+    tmp = path.with_name(path.name + ".__tmp")
+    try:
+        df.to_csv(tmp, index=False)
+        os.replace(str(tmp), str(path))
+    except Exception:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
 # ── CSV tracker ───────────────────────────────────────────────────────────────
 
 def _swap_tracker_columns(session_dir: Path, pos_a: str, pos_b: str) -> None:
@@ -165,7 +198,7 @@ def _swap_tracker_columns(session_dir: Path, pos_a: str, pos_b: str) -> None:
     df = df.rename(columns=rename_b_to_a)
     df = df.rename(columns=rename_tmp_to_b)
 
-    df.to_csv(csv_path, index=False)
+    _write_csv_atomic(csv_path, df)
     logger.debug("Colonnes CSV tracker swappées : %s ↔ %s (%d cols each)", pos_a, pos_b, max(len(cols_a), len(cols_b)))
 
 
@@ -202,9 +235,7 @@ def _swap_metadata(session_dir: Path, pos_a: str, pos_b: str) -> None:
     elif isinstance(anchors, dict) and pos_b in anchors:
         anchors[pos_a] = anchors.pop(pos_b)
 
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(raw, f, indent=2, ensure_ascii=False)
-
+    _write_json_atomic(meta_path, raw)
     logger.debug("metadata.json mis à jour pour swap %s ↔ %s", pos_a, pos_b)
 
 
@@ -261,7 +292,7 @@ def rename_camera_on_disk(session_dir: str | Path, old_name: str, new_name: str)
         rename_map = {c: prefix_new + c[len(prefix_old):] for c in df.columns if c.startswith(prefix_old)}
         if rename_map:
             df = df.rename(columns=rename_map)
-            df.to_csv(csv_path, index=False)
+            _write_csv_atomic(csv_path, df)
             logger.debug("CSV : %d colonnes renommées %s → %s", len(rename_map), prefix_old, prefix_new)
 
     # 3. metadata.json
@@ -277,8 +308,7 @@ def rename_camera_on_disk(session_dir: str | Path, old_name: str, new_name: str)
         anchors = raw.get("camera_anchors", {})
         if isinstance(anchors, dict) and old_name in anchors:
             anchors[new_name] = anchors.pop(old_name)
-        with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump(raw, f, indent=2, ensure_ascii=False)
+        _write_json_atomic(meta_path, raw)
         logger.debug("metadata.json mis à jour : %s → %s", old_name, new_name)
 
     logger.info("Renommage caméra terminé : '%s' → '%s'", old_name, new_name)
