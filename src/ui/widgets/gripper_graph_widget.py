@@ -196,9 +196,9 @@ class GripperGraphWidget(QWidget):
 
             ts_v  = ts_arr[valid]
             ang_v = ang_arr[valid]
-            a_min = 0.0
-            a_max = 75.0
-            a_rng = a_max - a_min
+            a_min = float(ang_v.min())
+            a_max = float(ang_v.max())
+            a_rng = a_max - a_min if a_max > a_min else 1.0
 
             # ── Lignes de grille + ticks Y ────────────────────────────────
             for val in (a_max, (a_max + a_min) / 2.0, a_min):
@@ -337,9 +337,9 @@ class GripperGraphWidget(QWidget):
 
             ts_v  = ts_arr[valid]
             ang_v = ang_arr[valid]
-            a_min = 0.0
-            a_max = 75.0
-            a_rng = a_max - a_min
+            a_min = float(ang_v.min())
+            a_max = float(ang_v.max())
+            a_rng = a_max - a_min if a_max > a_min else 1.0
 
             val = float(np.interp(self._current_time, ts_v, ang_v))
             if not np.isfinite(val):
@@ -370,6 +370,6 @@ class GripperGraphWidget(QWidget):
             usable_x = w - 2 * _MARGIN
             p.drawText(_MARGIN, py0, usable_x, _TITLE_H,
                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                       f"{val:.1f} mm  ·  0 – 75 mm")
+                       f"{val:.1f} mm  ·  min {a_min:.0f}  max {a_max:.0f}")
 
         p.end()
