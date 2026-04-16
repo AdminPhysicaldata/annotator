@@ -3738,7 +3738,7 @@ class MainWindow(QMainWindow):
         self._show_waiting_screen()
 
     def _show_waiting_screen(self) -> None:
-        """Affiche l'écran d'attente et lance automatiquement le téléchargement HDD."""
+        """Affiche l'écran d'attente (sans lancer le téléchargement automatique)."""
         self._stop_prefetcher()
         if self._poller_thread is not None and self._poller_thread.isRunning():
             self._poller_thread.quit()
@@ -3746,11 +3746,11 @@ class MainWindow(QMainWindow):
             self._poller_thread = None
         self.stack.setCurrentIndex(0)
         self.waiting_widget.stop_animation()
-        self.waiting_widget.set_status("Connexion au serveur HDD…")
+        self.waiting_widget.set_status("En attente…")
         self.waiting_widget.set_queue_info("")
         self.waiting_widget.hide_skip_button()
-        self.statusbar.showMessage("HDD : recherche de la prochaine session…")
-        self._on_load_from_spool()
+        self.statusbar.showMessage("En attente d'une session.")
+        # self._on_load_from_spool()
 
     # ------------------------------------------------------------------
     # Mode Annotation / Vérification
@@ -3794,9 +3794,9 @@ class MainWindow(QMainWindow):
                 self.stack.setCurrentIndex(2)
                 self.verification_widget.setFocus()
             else:
-                # Pas encore de session — lancer le téléchargement automatique depuis le HDD
+                # Pas encore de session — afficher l'écran d'attente sans fetch automatique
                 self.stack.setCurrentIndex(0)
-                self._start_hdd_verification_download()
+                # self._start_hdd_verification_download()
         else:
             self._mode_btn.setText("🔍 Mode Vérification")
             if self.session is not None:
